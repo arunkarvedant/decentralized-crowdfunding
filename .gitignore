@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# Hardhat build artifacts
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+
+# Production & environment
+build/
+dist/
+.env
+.env*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor & OS files
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.idea/
+.vscode/
+
+# Ignore legacy files in downloads
+*.pdf
+*.docx
+backend/
+de_images/
+processed_images/
+spm_images/
+*.py
+*.txt
+*.png

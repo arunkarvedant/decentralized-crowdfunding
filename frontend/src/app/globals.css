@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 248 250 252;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --primary: 37 99 235;
+    --primary-foreground: 255 255 255;
+    --border: 226 232 240;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+  }
+
+  .dark {
+    --background: 11 15 25;
+    --foreground: 248 250 252;
+    --card: 17 24 39;
+    --card-foreground: 248 250 252;
+    --primary: 59 130 246;
+    --primary-foreground: 255 255 255;
+    --border: 30 41 59;
+    --muted: 30 41 59;
+    --muted-foreground: 148 163 184;
+  }
+}
+
+/* Custom Scrollbar for document viewer and conversation lists */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Smooth focus rings */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
