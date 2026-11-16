@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
-import { Check, Clock, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 
 export interface TimelineEntry {
   id: string | number;
@@ -30,7 +29,7 @@ export function Timeline({ entries, className }: TimelineProps) {
 
   return (
     <div className={cn("relative pl-6 space-y-6 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/[0.08]", className)}>
-      {entries.map((entry, idx) => {
+      {entries.map((entry) => {
         const isCompleted = entry.status === "completed";
         const isCurrent = entry.status === "current";
 

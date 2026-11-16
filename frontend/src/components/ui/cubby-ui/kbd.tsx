@@ -61,14 +61,12 @@ export function Kbd({
   children,
   ...props
 }: KbdProps) {
-  const [platform, setPlatform] = React.useState<Platform>("mac");
-
-  React.useEffect(() => {
+  const [platform] = React.useState<Platform>(() => {
     if (typeof window !== "undefined") {
-      const isMac = /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent);
-      setPlatform(isMac ? "mac" : "windows");
+      return /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent) ? "mac" : "windows";
     }
-  }, []);
+    return "mac";
+  });
 
   return (
     <kbd

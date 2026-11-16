@@ -38,7 +38,6 @@ export function CircularSlider({
   // Radius & center
   const center = size / 2;
   const radius = center - strokeWidth - 8;
-  const circumference = 2 * Math.PI * radius;
 
   // Fraction of total range
   const fraction = Math.min(Math.max((value - min) / (max - min), 0), 1);
@@ -88,7 +87,7 @@ export function CircularSlider({
     }
 
     const newFraction = rel / sweep;
-    let rawVal = min + newFraction * (max - min);
+    const rawVal = min + newFraction * (max - min);
     // Snap to step
     const steps = Math.round(rawVal / step);
     let snapped = steps * step;

@@ -13,10 +13,8 @@ import {
   Sparkles,
   Search,
   Check,
-  Flame,
-  Activity,
 } from "lucide-react";
-import { Kbd, Badge, Avatar, Tooltip } from "@/components/ui/cubby-ui";
+import { Kbd, Badge, Avatar } from "@/components/ui/cubby-ui";
 
 interface NavbarProps {
   activeTab: string;

@@ -2,24 +2,16 @@
 
 import React, { useState } from "react";
 import { useWeb3 } from "@/context/Web3Context";
-import { Campaign, CampaignStatus } from "@/types/crowdfunding";
 import {
   Layers,
   Coins,
   Users,
   CheckCircle2,
-  Clock,
   AlertTriangle,
-  ArrowRight,
   PlusCircle,
-  FileText,
-  DollarSign,
-  ExternalLink,
-  Sparkles,
 } from "lucide-react";
 import {
   FancyButton,
-  MarchingBorder,
   Meter,
   StatCard,
   Badge,

@@ -242,18 +242,21 @@ export const Web3Provider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Load state from localStorage on client
   useEffect(() => {
-    try {
-      const savedCampaigns = localStorage.getItem("crowdr_eth_campaigns");
-      if (savedCampaigns) {
-        setCampaigns(JSON.parse(savedCampaigns));
+    const timer = setTimeout(() => {
+      try {
+        const savedCampaigns = localStorage.getItem("crowdr_eth_campaigns");
+        if (savedCampaigns) {
+          setCampaigns(JSON.parse(savedCampaigns));
+        }
+        const savedFee = localStorage.getItem("crowdr_fee_bps");
+        if (savedFee) {
+          setPlatformFeeBps(Number(savedFee));
+        }
+      } catch {
+        // ignore
       }
-      const savedFee = localStorage.getItem("crowdr_fee_bps");
-      if (savedFee) {
-        setPlatformFeeBps(Number(savedFee));
-      }
-    } catch {
-      // ignore
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Save campaigns to localStorage

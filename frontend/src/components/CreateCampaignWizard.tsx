@@ -10,8 +10,6 @@ import {
   AlertTriangle,
   Coins,
   Shield,
-  Layers,
-  CheckCircle2,
 } from "lucide-react";
 import { FancyButton, MarchingBorder, Meter } from "@/components/ui/cubby-ui";
 

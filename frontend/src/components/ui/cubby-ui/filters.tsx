@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Filter, X, ChevronDown, Plus, Check } from "lucide-react";
+import { Filter, X, ChevronDown, Check } from "lucide-react";
 
 export interface FilterItem {
   id: string;

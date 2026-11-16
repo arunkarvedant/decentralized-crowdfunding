@@ -29,3 +29,17 @@
   7. `CampaignFactory`: Now uses `Ownable2Step`. Ownership transfers require `acceptOwnership()`.
   8. Deployed contracts schema: Keyed by chain ID in `frontend/src/contracts/deployedContracts.json`:
      `{ [chainId]: { factoryAddress, implementationAddress, startBlock, factoryAbi, campaignAbi } }`.
+
+---
+### Agent B -> Agent C & Agent D (Cleanup & Tooling)
+- **Status:** Complete & verified.
+- **Actions Completed:**
+  1. Purged 14 unused knowledge-base views, modals, drawers, and dead files (`api.ts`, `types/index.ts`, `Sidebar.tsx`, `Header.tsx`, `AskAiView.tsx`, etc.).
+  2. Removed `recharts` from `frontend/package.json`.
+  3. Bundled `Inter.woff2` locally in `frontend/src/app/fonts/Inter.woff2` and configured `next/font/local` (`adjustFontFallback: false`) for 100% offline-ready builds.
+  4. Added `next.config.ts` security headers (`poweredByHeader: false`, CSP, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and remote image patterns for IPFS gateways: `ipfs.io`, `gateway.pinata.cloud`, `cloudflare-ipfs.com`).
+  5. Added `frontend/src/app/robots.ts` and `frontend/src/app/sitemap.ts`.
+  6. Configured ESLint: resolved all unused imports/types/variables across components to achieve **0 errors, 0 warnings** on `npm run lint`.
+  7. Added MIT `LICENSE` and rewritten root `README.md` with complete architecture, quickstart, invariants, and environment configuration.
+  8. Created `frontend/.env.example` and CI workflow `.github/workflows/ci.yml` running dual jobs for contracts and frontend.
+  9. Acceptance verified: `npm run lint`, `npx tsc --noEmit`, and `npm run build` all pass cleanly with 0 errors and 0 warnings.

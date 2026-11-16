@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Copy, Check, QrCode as QrIcon } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 
 export interface QRCodeProps {
   value: string;

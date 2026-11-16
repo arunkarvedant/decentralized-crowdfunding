@@ -2,28 +2,21 @@
 
 import React, { useState } from "react";
 import { useWeb3 } from "@/context/Web3Context";
-import { Campaign, CampaignStatus } from "@/types/crowdfunding";
 import {
   Wallet,
   Coins,
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
-  ExternalLink,
   ShieldCheck,
-  RefreshCw,
-  Clock,
-  Sparkles,
   Layers,
 } from "lucide-react";
 import {
   FancyButton,
   MarchingBorder,
-  Meter,
   StatCard,
   Badge,
   Card,
-  Avatar,
 } from "@/components/ui/cubby-ui";
 
 interface BackerDashboardViewProps {

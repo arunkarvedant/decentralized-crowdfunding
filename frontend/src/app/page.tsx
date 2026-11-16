@@ -10,7 +10,7 @@ import { CreatorDashboardView } from "@/components/CreatorDashboardView";
 import { BackerDashboardView } from "@/components/BackerDashboardView";
 import { AdminPanelView } from "@/components/AdminPanelView";
 import { CommandMenu } from "@/components/ui/cubby-ui/command-menu";
-import { Coins, Shield, Sparkles } from "lucide-react";
+import { Coins, Shield } from "lucide-react";
 import { Kbd } from "@/components/ui/cubby-ui/kbd";
 
 export default function Home() {

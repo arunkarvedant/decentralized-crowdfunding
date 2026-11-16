@@ -2,23 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { useWeb3 } from "@/context/Web3Context";
-import { Campaign, CampaignStatus } from "@/types/crowdfunding";
+import { CampaignStatus } from "@/types/crowdfunding";
 import {
   ArrowLeft,
   Clock,
-  Users,
   Shield,
-  Coins,
   CheckCircle2,
   AlertTriangle,
   Copy,
   Check,
   Eye,
   EyeOff,
-  Sparkles,
-  ExternalLink,
   QrCode as QrIcon,
-  ShieldCheck,
 } from "lucide-react";
 import {
   CircularSlider,
@@ -36,7 +31,6 @@ import {
   TabsTrigger,
   TabsContent,
   Avatar,
-  Tooltip,
 } from "@/components/ui/cubby-ui";
 
 interface CampaignDetailViewProps {
@@ -59,7 +53,9 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
     contractAddresses,
   } = useWeb3();
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const campaign = campaigns.find(
+    (c) => c.address.toLowerCase() === campaignAddress.toLowerCase()
+  ) || null;
   const [contributionAmount, setContributionAmount] = useState<number>(0.1);
   const [activeTab, setActiveTab] = useState<string>("story");
   const [anonymousContributors, setAnonymousContributors] = useState<boolean>(false);
@@ -74,24 +70,18 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
   const [updateTitle, setUpdateTitle] = useState<string>("");
   const [updateContent, setUpdateContent] = useState<string>("");
 
-  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    setCurrentTime(Math.floor(Date.now() / 1000));
+
     const interval = setInterval(() => {
       setCurrentTime(Math.floor(Date.now() / 1000));
+  
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const found = campaigns.find(
-      (c) => c.address.toLowerCase() === campaignAddress.toLowerCase()
-    );
-    if (found) {
-      setCampaign(found);
-    }
-  }, [campaigns, campaignAddress]);
+
 
   if (!campaign) {
     return (

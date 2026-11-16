@@ -2,23 +2,15 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useWeb3 } from "@/context/Web3Context";
-import { Campaign, CampaignStatus } from "@/types/crowdfunding";
+import { CampaignStatus } from "@/types/crowdfunding";
 import {
   Clock,
-  CheckCircle2,
-  AlertCircle,
   Coins,
   Users,
-  Shield,
   ArrowRight,
   Sparkles,
   Layers,
-  Flame,
   ShieldCheck,
-  Code,
-  Lock,
-  RefreshCw,
-  HelpCircle,
 } from "lucide-react";
 import {
   MarchingBorder,
@@ -34,7 +26,6 @@ import {
   AccordionTrigger,
   AccordionContent,
   Avatar,
-  Tooltip,
 } from "@/components/ui/cubby-ui";
 
 interface ExploreViewProps {
@@ -55,10 +46,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [sortBy, setSortBy] = useState<string>("trending");
-  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    setCurrentTime(Math.floor(Date.now() / 1000));
     const interval = setInterval(() => {
       setCurrentTime(Math.floor(Date.now() / 1000));
     }, 5000);

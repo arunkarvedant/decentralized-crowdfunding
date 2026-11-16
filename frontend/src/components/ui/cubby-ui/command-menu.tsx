@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
-import { Search, Compass, PlusCircle, Wallet, Layers, ShieldCheck, X, ArrowRight, User } from "lucide-react";
+import Image from "next/image";
+import { Search, Compass, PlusCircle, Wallet, Layers, ShieldCheck, ArrowRight } from "lucide-react";
 import { Kbd } from "./kbd";
 import { useWeb3, DEMO_ACCOUNTS } from "@/context/Web3Context";
 
@@ -135,9 +135,11 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors group text-left"
                 >
                   <div className="flex items-center gap-2.5 overflow-hidden pr-2">
-                    <img
+                    <Image
                       src={c.coverImage}
                       alt={c.title}
+                      width={28}
+                      height={28}
                       className="w-7 h-7 rounded-lg object-cover shrink-0"
                     />
                     <div className="truncate">
