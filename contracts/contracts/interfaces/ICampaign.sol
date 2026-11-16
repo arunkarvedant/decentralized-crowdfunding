@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 /**
  * @title ICampaign
@@ -37,6 +37,7 @@ interface ICampaign {
 
     event Contributed(address indexed contributor, uint256 amount, uint256 totalRaised);
     event Withdrawn(address indexed creator, uint256 creatorAmount, uint256 feeAmount);
+    event FeeClaimed(address indexed treasury, uint256 amount);
     event Refunded(address indexed contributor, uint256 amount);
     event Cancelled(address indexed caller);
     event UpdatePosted(string cid, uint256 timestamp);
@@ -53,6 +54,8 @@ interface ICampaign {
 
     function contribute() external payable;
     function withdraw() external;
+    function withdrawTo(address payable to) external;
+    function claimFee() external;
     function refund() external;
     function cancel() external;
     function postUpdate(string calldata cid) external;
@@ -60,6 +63,9 @@ interface ICampaign {
     function status() external view returns (CampaignStatus);
     function contributionOf(address contributor) external view returns (uint256);
     function totalRaised() external view returns (uint256);
+    function feeOwed() external view returns (uint256);
+    function contributorCount() external view returns (uint256);
+    function getContributors(uint256 offset, uint256 limit) external view returns (address[] memory);
     function getContributors() external view returns (address[] memory);
     function getUpdates() external view returns (Update[] memory);
     function getDetails() external view returns (CampaignDetails memory);

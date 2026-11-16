@@ -51,13 +51,40 @@ describe("Decentralized Crowdfunding Platform (ETH)", function () {
       await expect(factory.connect(owner).setFeeBps(501)).to.be.revertedWith("Fee exceeds 5% cap");
     });
 
-    it("should reject non-owner changing fee or treasury", async function () {
+    it("should allow owner to update treasury address", async function () {
+      await expect(factory.connect(owner).setTreasury(backer1.address))
+        .to.emit(factory, "TreasuryUpdated")
+        .withArgs(treasury.address, backer1.address);
+      expect(await factory.treasury()).to.equal(backer1.address);
+
+      await expect(
+        factory.connect(owner).setTreasury(ethers.ZeroAddress)
+      ).to.be.revertedWith("Invalid treasury address");
+    });
+
+    it("should allow owner to update minimum contribution", async function () {
+      const newMin = ethers.parseEther("0.005");
+      await expect(factory.connect(owner).setMinContribution(newMin))
+        .to.emit(factory, "MinContributionUpdated")
+        .withArgs(ethers.parseEther("0.001"), newMin);
+      expect(await factory.minContribution()).to.equal(newMin);
+
+      await expect(
+        factory.connect(owner).setMinContribution(0)
+      ).to.be.revertedWith("Minimum contribution must be > 0");
+    });
+
+    it("should reject non-owner changing fee, treasury, or minContribution", async function () {
       await expect(
         factory.connect(maliciousUser).setFeeBps(100)
       ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
 
       await expect(
         factory.connect(maliciousUser).setTreasury(maliciousUser.address)
+      ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
+
+      await expect(
+        factory.connect(maliciousUser).setMinContribution(1000)
       ).to.be.revertedWithCustomError(factory, "OwnableUnauthorizedAccount");
     });
 
@@ -102,6 +129,7 @@ describe("Decentralized Crowdfunding Platform (ETH)", function () {
       // Verification in factory registry
       expect(await factory.isCampaign(campaignAddress)).to.be.true;
       expect(await factory.getCampaignsCount()).to.equal(1);
+      expect(await factory.getAllCampaigns()).to.deep.equal([campaignAddress]);
       const creatorCampaigns = await factory.getCreatorCampaigns(creator.address);
       expect(creatorCampaigns[0]).to.equal(campaignAddress);
     });
@@ -271,12 +299,16 @@ describe("Decentralized Crowdfunding Platform (ETH)", function () {
       const gasSpent = receipt.gasUsed * receipt.gasPrice;
 
       const finalCreatorBal = await ethers.provider.getBalance(creator.address);
-      const finalTreasuryBal = await ethers.provider.getBalance(treasury.address);
-
-      expect(finalTreasuryBal - initialTreasuryBal).to.equal(expectedFee);
       expect(finalCreatorBal - initialCreatorBal + gasSpent).to.equal(expectedCreatorPayout);
       expect(await campaign.withdrawn()).to.be.true;
       expect(await campaign.status()).to.equal(4); // CampaignStatus.Withdrawn
+      expect(await campaign.feeOwed()).to.equal(expectedFee);
+
+      // Pull-based fee claiming
+      await campaign.claimFee();
+      const finalTreasuryBal = await ethers.provider.getBalance(treasury.address);
+      expect(finalTreasuryBal - initialTreasuryBal).to.equal(expectedFee);
+      expect(await campaign.feeOwed()).to.equal(0);
     });
 
     it("should prevent double withdrawal (FR-20)", async function () {

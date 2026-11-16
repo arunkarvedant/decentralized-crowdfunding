@@ -11,6 +11,8 @@ out/
 contracts/artifacts/
 contracts/cache/
 contracts/typechain-types/
+contracts/coverage/
+contracts/coverage.json
 
 # Production & environment
 build/

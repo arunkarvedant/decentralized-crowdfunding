@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./Campaign.sol";
@@ -11,7 +11,7 @@ import "./interfaces/ICampaignFactory.sol";
  * @title CampaignFactory
  * @notice Factory that deploys minimal proxy clones (EIP-1167) for Crowdfunding Campaigns
  */
-contract CampaignFactory is ICampaignFactory, Ownable, Pausable {
+contract CampaignFactory is ICampaignFactory, Ownable2Step, Pausable {
     address public immutable campaignImplementation;
     address public override treasury;
     uint256 public override feeBps; // default 200 bps = 2%

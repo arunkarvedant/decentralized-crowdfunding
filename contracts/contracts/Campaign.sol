@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "./interfaces/ICampaign.sol";
 import "./interfaces/ICampaignFactory.sol";
@@ -9,34 +9,36 @@ import "./interfaces/ICampaignFactory.sol";
  * @notice Logic contract for cloneable crowdfunding campaigns (EIP-1167 minimal proxy)
  */
 contract Campaign is ICampaign {
-    // Reentrancy guard state
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-    uint256 private _reentrancyStatus;
+    // Slot 0 (32 bytes)
+    address public creator;        // 20 bytes
+    uint64 public deadline;        // 8 bytes
+    uint16 public feeBps;          // 2 bytes
+    bool public withdrawn;         // 1 byte
+    bool public cancelled;         // 1 byte
 
-    // Initialization state
-    bool private _initialized;
+    // Slot 1 (22 bytes)
+    address public factory;        // 20 bytes
+    uint8 private _reentrancyStatus;// 1 byte
+    bool private _initialized;     // 1 byte
 
-    // Campaign parameters
-    address public factory;
-    address public creator;
-    address public treasury;
-    uint256 public goal;
-    uint256 public deadline;
-    string public metadataCID;
-    uint256 public feeBps;
-    uint256 public minContribution;
+    // Slot 2 (20 bytes)
+    address public treasury;       // 20 bytes
+
+    // Slot 3 (32 bytes)
+    uint128 public goal;           // 16 bytes
+    uint128 public minContribution;// 16 bytes
 
     // Financial & Lifecycle tracking
-    uint256 public override totalRaised;
-    uint256 public contributorCount;
-    bool public withdrawn;
-    bool public cancelled;
+    uint256 public override totalRaised; // Slot 4
+    uint256 public override feeOwed;     // Slot 5
+    string public metadataCID;           // Slot 6
 
-    mapping(address => uint256) public contributions;
-    mapping(address => bool) public hasContributed;
-    address[] public contributors;
-    Update[] public updates;
+    mapping(address => uint256) public contributions; // Slot 7
+    address[] public contributors;                     // Slot 8
+    Update[] public updates;                           // Slot 9
+
+    uint8 private constant _NOT_ENTERED = 1;
+    uint8 private constant _ENTERED = 2;
 
     modifier nonReentrant() {
         require(_reentrancyStatus != _ENTERED, "ReentrancyGuard: reentrant call");
@@ -65,6 +67,7 @@ contract Campaign is ICampaign {
      */
     constructor() {
         _initialized = true;
+        _reentrancyStatus = _NOT_ENTERED;
     }
 
     /**
@@ -90,20 +93,24 @@ contract Campaign is ICampaign {
         require(_creator != address(0), "Invalid creator");
         require(_treasury != address(0), "Invalid treasury");
         require(_goal > 0, "Goal must be > 0");
+        require(_goal <= type(uint128).max, "Goal overflow");
         require(_deadline > block.timestamp, "Deadline must be future");
+        require(_deadline <= type(uint64).max, "Deadline overflow");
         require(bytes(_metadataCID).length > 0, "Metadata CID required");
+        require(_minContribution <= type(uint128).max, "Min contribution overflow");
 
         _initialized = true;
         _reentrancyStatus = _NOT_ENTERED;
 
-        factory = msg.sender;
         creator = _creator;
+        deadline = uint64(_deadline);
+        feeBps = uint16(_feeBps);
+
+        factory = msg.sender;
         treasury = _treasury;
-        goal = _goal;
-        deadline = _deadline;
+        goal = uint128(_goal);
+        minContribution = uint128(_minContribution);
         metadataCID = _metadataCID;
-        feeBps = _feeBps;
-        minContribution = _minContribution;
     }
 
     /**
@@ -126,67 +133,89 @@ contract Campaign is ICampaign {
     }
 
     /**
+     * @notice Number of unique contributors
+     */
+    function contributorCount() external view override returns (uint256) {
+        return contributors.length;
+    }
+
+    /**
      * @notice Contribute ETH to an active campaign
      */
     function contribute() external payable override nonReentrant {
-        require(status() == CampaignStatus.Active, "Campaign is not active");
-        require(msg.sender != creator, "Creator cannot contribute to own campaign");
-        require(msg.value >= minContribution, "Contribution below minimum");
-
-        contributions[msg.sender] += msg.value;
-        totalRaised += msg.value;
-
-        if (!hasContributed[msg.sender]) {
-            hasContributed[msg.sender] = true;
-            contributorCount++;
-            contributors.push(msg.sender);
-        }
-
-        emit Contributed(msg.sender, msg.value, totalRaised);
+        _contribute();
     }
 
     /**
      * @notice Fallback function to allow contributing by sending ETH directly
      */
     receive() external payable {
+        require(_reentrancyStatus != _ENTERED, "ReentrancyGuard: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _contribute();
+        _reentrancyStatus = _NOT_ENTERED;
+    }
+
+    function _contribute() internal {
         require(status() == CampaignStatus.Active, "Campaign is not active");
         require(msg.sender != creator, "Creator cannot contribute to own campaign");
         require(msg.value >= minContribution, "Contribution below minimum");
 
-        contributions[msg.sender] += msg.value;
-        totalRaised += msg.value;
-
-        if (!hasContributed[msg.sender]) {
-            hasContributed[msg.sender] = true;
-            contributorCount++;
+        if (contributions[msg.sender] == 0) {
             contributors.push(msg.sender);
         }
+
+        contributions[msg.sender] += msg.value;
+        totalRaised += msg.value;
 
         emit Contributed(msg.sender, msg.value, totalRaised);
     }
 
     /**
-     * @notice Withdraw funds on successful campaign. Payout split happens atomically.
+     * @notice Withdraw funds on successful campaign to the creator
      */
-    function withdraw() external override nonReentrant onlyCreator {
+    function withdraw() external override {
+        _withdrawTo(payable(creator));
+    }
+
+    /**
+     * @notice Withdraw funds to a specified recipient (e.g. if creator contract has no receive())
+     * @param to Recipient address of the creator payout
+     */
+    function withdrawTo(address payable to) external override {
+        require(to != address(0), "Invalid recipient");
+        _withdrawTo(to);
+    }
+
+    function _withdrawTo(address payable to) internal nonReentrant onlyCreator {
         require(status() == CampaignStatus.Successful, "Campaign not successful");
         require(!withdrawn, "Funds already withdrawn");
 
         withdrawn = true;
 
-        uint256 balance = address(this).balance;
-        uint256 feeAmount = (balance * feeBps) / 10000;
-        uint256 creatorAmount = balance - feeAmount;
+        uint256 feeAmount = (totalRaised * uint256(feeBps)) / 10000;
+        uint256 creatorAmount = totalRaised - feeAmount;
+        feeOwed += feeAmount;
 
-        if (feeAmount > 0) {
-            (bool feeSent, ) = payable(treasury).call{value: feeAmount}("");
-            require(feeSent, "Treasury transfer failed");
-        }
-
-        (bool creatorSent, ) = payable(creator).call{value: creatorAmount}("");
+        (bool creatorSent, ) = to.call{value: creatorAmount}("");
         require(creatorSent, "Creator transfer failed");
 
         emit Withdrawn(creator, creatorAmount, feeAmount);
+    }
+
+    /**
+     * @notice Pull-based fee claiming for platform treasury. Anyone may call.
+     */
+    function claimFee() external override nonReentrant {
+        uint256 amount = feeOwed;
+        require(amount > 0, "No fee owed");
+
+        feeOwed = 0;
+
+        (bool feeSent, ) = payable(treasury).call{value: amount}("");
+        require(feeSent, "Treasury transfer failed");
+
+        emit FeeClaimed(treasury, amount);
     }
 
     /**
@@ -220,6 +249,9 @@ contract Campaign is ICampaign {
         if (msg.sender == creator) {
             require(totalRaised == 0, "Cannot cancel after receiving contributions");
             require(block.timestamp < deadline, "Cannot cancel after deadline");
+        } else {
+            // When caller is NOT the creator (factory or factory owner), campaign MUST be Active
+            require(status() == CampaignStatus.Active, "Only active campaigns can be cancelled");
         }
 
         cancelled = true;
@@ -244,6 +276,26 @@ contract Campaign is ICampaign {
     }
 
     /**
+     * @notice Retrieve paginated list of contributors
+     */
+    function getContributors(uint256 offset, uint256 limit) external view override returns (address[] memory) {
+        uint256 total = contributors.length;
+        if (offset >= total || limit == 0) {
+            return new address[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        uint256 size = end - offset;
+        address[] memory result = new address[](size);
+        for (uint256 i = 0; i < size; i++) {
+            result[i] = contributors[offset + i];
+        }
+        return result;
+    }
+
+    /**
      * @notice Retrieve list of all contributors
      */
     function getContributors() external view override returns (address[] memory) {
@@ -265,13 +317,13 @@ contract Campaign is ICampaign {
             campaignAddress: address(this),
             creator: creator,
             treasury: treasury,
-            goal: goal,
-            deadline: deadline,
+            goal: uint256(goal),
+            deadline: uint256(deadline),
             metadataCID: metadataCID,
-            feeBps: feeBps,
-            minContribution: minContribution,
+            feeBps: uint256(feeBps),
+            minContribution: uint256(minContribution),
             totalRaised: totalRaised,
-            contributorCount: contributorCount,
+            contributorCount: contributors.length,
             status: status(),
             withdrawn: withdrawn,
             cancelled: cancelled
