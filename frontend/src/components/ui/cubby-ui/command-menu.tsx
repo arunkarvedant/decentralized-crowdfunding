@@ -1,19 +1,23 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
-import { Search, Compass, PlusCircle, Wallet, Layers, ShieldCheck, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Compass, PlusCircle, Layers, ShieldCheck, ArrowRight } from "lucide-react";
 import { Kbd } from "./kbd";
-import { useWeb3, DEMO_ACCOUNTS } from "@/context/Web3Context";
+import { useWeb3 } from "@/context/Web3Context";
+import { ethers } from "ethers";
 
 export interface CommandMenuProps {
   isOpen: boolean;
   onClose: () => void;
-  onNavigate: (tab: string, campaignAddress?: string) => void;
+  onNavigate?: (tab: string, campaignAddress?: string) => void;
 }
 
-export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
-  const { campaigns, connectDemoAccount } = useWeb3();
+const STATUS_LABELS = ["Active", "Successful", "Failed", "Cancelled", "Withdrawn"];
+
+export function CommandMenu({ isOpen, onClose }: CommandMenuProps) {
+  const router = useRouter();
+  const { campaigns, isOwner } = useWeb3();
   const [query, setQuery] = React.useState("");
 
   // Keyboard shortcut listener (⌘K / Ctrl+K & Escape)
@@ -32,11 +36,17 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
 
   if (!isOpen) return null;
 
+  const navigateTo = (path: string) => {
+    router.push(path);
+    onClose();
+  };
+
   const filteredCampaigns = campaigns.filter(
     (c) =>
       c.title.toLowerCase().includes(query.toLowerCase()) ||
       c.summary.toLowerCase().includes(query.toLowerCase()) ||
-      c.category.toLowerCase().includes(query.toLowerCase())
+      c.category.toLowerCase().includes(query.toLowerCase()) ||
+      c.address.toLowerCase().includes(query.toLowerCase())
   );
 
   return (
@@ -71,21 +81,17 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
               Quick Navigation
             </p>
             {[
-              { id: "explore", label: "Explore Campaigns", icon: Compass },
-              { id: "create", label: "Launch New Campaign", icon: PlusCircle },
-              { id: "backer", label: "Backer Dashboard & Refunds", icon: Wallet },
-              { id: "creator", label: "Creator Dashboard & Payouts", icon: Layers },
-              { id: "admin", label: "Platform Governance & Admin", icon: ShieldCheck },
+              { href: "/", label: "Explore Campaigns", icon: Compass },
+              { href: "/create", label: "Launch Escrow Campaign", icon: PlusCircle },
+              { href: "/dashboard", label: "Creator & Backer Dashboard", icon: Layers },
+              ...(isOwner ? [{ href: "/admin", label: "Platform Governance & Admin", icon: ShieldCheck }] : []),
             ].map((action) => {
               const Icon = action.icon;
               return (
                 <button
-                  key={action.id}
-                  onClick={() => {
-                    onNavigate(action.id);
-                    onClose();
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors group"
+                  key={action.href}
+                  onClick={() => navigateTo(action.href)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors group cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
                     <Icon className="w-4 h-4 text-slate-400 group-hover:text-emerald-400" />
@@ -97,28 +103,6 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
             })}
           </div>
 
-          {/* Quick Persona Switcher */}
-          <div className="space-y-1 pt-2 border-t border-white/[0.06]">
-            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Switch Test Persona
-            </p>
-            <div className="grid grid-cols-3 gap-1.5 px-1">
-              {DEMO_ACCOUNTS.map((acc, idx) => (
-                <button
-                  key={acc.address}
-                  onClick={() => {
-                    connectDemoAccount(idx);
-                    onClose();
-                  }}
-                  className="p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-left transition-colors"
-                >
-                  <p className="text-[11px] font-semibold text-slate-200">{acc.name}</p>
-                  <p className="text-[10px] text-emerald-400 font-mono">{acc.balance} ETH</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Campaigns Matching Query */}
           {filteredCampaigns.length > 0 && (
             <div className="space-y-1 pt-2 border-t border-white/[0.06]">
@@ -127,19 +111,14 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
               </p>
               {filteredCampaigns.slice(0, 5).map((c) => (
                 <button
-                  key={c.id}
-                  onClick={() => {
-                    onNavigate("campaign", c.address);
-                    onClose();
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors group text-left"
+                  key={c.address}
+                  onClick={() => navigateTo(`/campaign/${c.address}`)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors group text-left cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5 overflow-hidden pr-2">
-                    <Image
+                    <img
                       src={c.coverImage}
                       alt={c.title}
-                      width={28}
-                      height={28}
                       className="w-7 h-7 rounded-lg object-cover shrink-0"
                     />
                     <div className="truncate">
@@ -147,12 +126,13 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
                         {c.title}
                       </p>
                       <p className="text-[10px] text-slate-500 font-mono">
-                        {c.totalRaised} / {c.goal} ETH • {c.category}
+                        {parseFloat(ethers.formatEther(c.totalRaised)).toFixed(2)} /{" "}
+                        {parseFloat(ethers.formatEther(c.goal)).toFixed(2)} ETH • {c.category}
                       </p>
                     </div>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-slate-400 shrink-0">
-                    {c.status}
+                    {STATUS_LABELS[c.status] || "Active"}
                   </span>
                 </button>
               ))}
@@ -162,7 +142,7 @@ export function CommandMenu({ isOpen, onClose, onNavigate }: CommandMenuProps) {
 
         {/* Footer shortcuts */}
         <div className="px-4 py-2 bg-white/[0.02] border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-500">
-          <span>Navigate with arrows or click</span>
+          <span>Navigate with click or arrow keys</span>
           <div className="flex items-center gap-2">
             <span>Close</span>
             <Kbd size="xs">Esc</Kbd>

@@ -43,3 +43,39 @@
   7. Added MIT `LICENSE` and rewritten root `README.md` with complete architecture, quickstart, invariants, and environment configuration.
   8. Created `frontend/.env.example` and CI workflow `.github/workflows/ci.yml` running dual jobs for contracts and frontend.
   9. Acceptance verified: `npm run lint`, `npx tsc --noEmit`, and `npm run build` all pass cleanly with 0 errors and 0 warnings.
+
+---
+### Agent C -> Agent D & Agent E (Web3 Layer & IPFS Pinning)
+- **Status:** Complete & verified.
+- **Actions Completed:**
+  1. Wrote `frontend/src/types/crowdfunding.ts` with strict `CampaignStatus` enum, `bigint` types for all monetary and timestamp values, and EthereumProvider interface.
+  2. Implemented `frontend/src/app/api/pin/route.ts` supporting image uploads and JSON metadata pinning via Pinata IPFS (with automatic fallback to base64 data URLs for offline/local development).
+  3. Completely rewrote `frontend/src/context/Web3Context.tsx`:
+     - Clean Ethers v6 integration with JsonRpcProvider for read-paths and BrowserProvider for write-paths.
+     - StaticCall simulation pre-flight on all writes before gas is spent.
+     - Graceful error decoding with user cancellation handling (`ACTION_REJECTED` / `4001`) and custom error parsing.
+     - Deleted all demo personas (`DEMO_ACCOUNTS`, `INITIAL_CAMPAIGNS`, fake timestamps, and localStorage mocks).
+     - Network auto-detection with wrong-network banner and `switchNetwork()` helper.
+
+---
+### Agent D -> Agent E (Routes & UI Architecture)
+- **Status:** Complete & verified.
+- **Actions Completed:**
+  1. Converted application into true Next.js App Router architecture:
+     - `/` (Explore catalog with search, category filtering, dynamic status filters, and cubby-ui accordion)
+     - `/create` (Creation wizard with zod validation, react-hook-form, image file upload via `/api/pin`, and live card preview)
+     - `/campaign/[address]` (Detail view with live countdown, progress meter, backer ledger, withdraw/withdrawTo, and refund options)
+     - `/dashboard` (Segmented Creator and Backer views with claimable payouts and refunds)
+     - `/admin` (Platform governance gated by `isOwner` with 403 screen for unauthorized callers)
+     - `not-found.tsx`, `error.tsx`, `loading.tsx`
+  2. Deleted legacy unreferenced views (`CreateCampaignWizard.tsx`, `CreatorDashboardView.tsx`, `BackerDashboardView.tsx`, `AdminPanelView.tsx`).
+  3. Production build verified: all routes compile and prerender cleanly.
+
+---
+### Agent E (QA & Verification)
+- **Status:** Complete & verified.
+- **Actions Completed:**
+  1. Configured Vitest in `frontend/vitest.config.mts` with `jsdom`.
+  2. Created unit test suite `frontend/tests/web3.test.ts` verifying 15 tests (status derivation across all 5 enum values, base64 metadata parsing, user rejection handling, custom error decoding, EIP-1193 chain switching, and BigInt precision).
+  3. Configured Playwright in `frontend/playwright.config.ts` and created smoke test suite `frontend/tests/e2e/smoke.spec.ts`.
+  4. Authored comprehensive QA document `docs/QA.md` covering the test matrix, smart contract invariants, gas benchmarks, and manual testing on Sepolia testnet.

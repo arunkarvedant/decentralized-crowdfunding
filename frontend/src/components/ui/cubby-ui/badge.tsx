@@ -17,6 +17,8 @@ const badgeVariants = cva(
           "bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20",
         danger:
           "bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20",
+        destructive:
+          "bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20",
         cyan:
           "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/20",
         purple:

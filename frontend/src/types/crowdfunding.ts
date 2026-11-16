@@ -1,48 +1,111 @@
-export type CampaignStatus = "Active" | "Successful" | "Failed" | "Cancelled" | "Withdrawn";
-
-export interface CampaignUpdate {
-  cid: string;
-  title: string;
-  content: string;
-  timestamp: number;
-  txHash?: string;
+export enum CampaignStatus {
+  Active = 0,
+  Successful = 1,
+  Failed = 2,
+  Cancelled = 3,
+  Withdrawn = 4,
 }
+
+export type CampaignCategory =
+  | "Technology"
+  | "Open Source"
+  | "Art & Film"
+  | "Community"
+  | "Gaming"
+  | "Other";
 
 export interface Contributor {
   address: string;
-  amount: string; // in ETH
-  timestamp: number;
+  amount: bigint;
+}
+
+export interface CampaignUpdate {
+  id: string;
+  timestamp: bigint;
+  title: string;
+  content: string;
   txHash?: string;
 }
 
-export interface Campaign {
-  id: string; // clone address or uuid
-  address: string;
-  creator: string;
+export interface CampaignMetadata {
   title: string;
-  summary: string;
+  summary?: string;
   description: string;
-  category: "Technology" | "Open Source" | "Art & Film" | "Community" | "Gaming" | "Other";
+  category: CampaignCategory;
   coverImage: string;
+}
+
+export interface CampaignDetailsStruct {
+  campaignAddress: string;
+  creator: string;
+  treasury: string;
+  goal: bigint;
+  deadline: bigint;
   metadataCID: string;
-  goal: string; // in ETH
-  totalRaised: string; // in ETH
-  deadline: number; // timestamp in seconds
-  feeBps: number;
+  feeBps: bigint;
+  minContribution: bigint;
+  totalRaised: bigint;
+  contributorCount: bigint;
   status: CampaignStatus;
   withdrawn: boolean;
   cancelled: boolean;
-  contributorsCount: number;
-  contributors: Contributor[];
-  updates: CampaignUpdate[];
-  createdAt: number;
+}
+
+export interface Campaign {
+  address: string;
+  creator: string;
+  goal: bigint;
+  deadline: bigint;
+  totalRaised: bigint;
+  contributorCount: number;
+  status: CampaignStatus;
+  feeBps: number;
+  feeOwed: bigint;
+  withdrawn: boolean;
+  cancelled: boolean;
+  title: string;
+  summary: string;
+  description: string;
+  coverImage: string;
+  category: CampaignCategory;
+  metadataCID: string;
+  minContribution: bigint;
+  treasury: string;
+  contributors?: Contributor[];
+  updates?: CampaignUpdate[];
+}
+
+export type TransactionStatus =
+  | "idle"
+  | "awaitingSignature"
+  | "pending"
+  | "confirmed"
+  | "failed";
+
+export interface TransactionState {
+  status: TransactionStatus;
+  txHash?: string;
+  error?: string;
 }
 
 export interface WalletState {
   address: string | null;
   chainId: number | null;
-  balance: string;
+  balance: bigint;
   isConnected: boolean;
   isConnecting: boolean;
   isMetaMask: boolean;
+}
+
+export interface EthereumProvider {
+  isMetaMask?: boolean;
+  request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
+  on?: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+}
+
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
 }

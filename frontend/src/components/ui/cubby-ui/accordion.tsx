@@ -10,9 +10,11 @@ interface AccordionContextValue {
 }
 
 const AccordionContext = createContext<AccordionContextValue | undefined>(undefined);
+const AccordionItemContext = createContext<string>("");
 
 export interface AccordionProps extends React.HTMLAttributes<HTMLDivElement> {
   type?: "single" | "multiple";
+  collapsible?: boolean;
   defaultValue?: string[];
 }
 
@@ -51,17 +53,19 @@ export interface AccordionItemProps extends React.HTMLAttributes<HTMLDivElement>
 export const AccordionItem = React.forwardRef<HTMLDivElement, AccordionItemProps>(
   ({ value, className, children, ...props }, ref) => {
     return (
-      <div
-        ref={ref}
-        data-value={value}
-        className={cn(
-          "rounded-xl border border-white/[0.08] bg-[#0c1017] transition-all overflow-hidden",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </div>
+      <AccordionItemContext.Provider value={value}>
+        <div
+          ref={ref}
+          data-value={value}
+          className={cn(
+            "rounded-xl border border-white/[0.08] bg-[#0c1017] transition-all overflow-hidden",
+            className
+          )}
+          {...props}
+        >
+          {children}
+        </div>
+      </AccordionItemContext.Provider>
     );
   }
 );
@@ -69,21 +73,23 @@ AccordionItem.displayName = "AccordionItem";
 
 export interface AccordionTriggerProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  value: string;
+  value?: string;
 }
 
 export const AccordionTrigger = React.forwardRef<HTMLButtonElement, AccordionTriggerProps>(
   ({ value, className, children, ...props }, ref) => {
     const context = useContext(AccordionContext);
+    const itemValue = useContext(AccordionItemContext);
     if (!context) throw new Error("AccordionTrigger must be used within Accordion");
 
-    const isOpen = context.openItems.includes(value);
+    const effectiveValue = value || itemValue;
+    const isOpen = context.openItems.includes(effectiveValue);
 
     return (
       <button
         ref={ref}
         type="button"
-        onClick={() => context.toggleItem(value)}
+        onClick={() => context.toggleItem(effectiveValue)}
         className={cn(
           "flex w-full items-center justify-between p-4 text-left text-xs sm:text-sm font-semibold text-white transition-colors hover:text-emerald-300 focus:outline-none cursor-pointer",
           isOpen && "text-emerald-300",
@@ -105,22 +111,24 @@ export const AccordionTrigger = React.forwardRef<HTMLButtonElement, AccordionTri
 AccordionTrigger.displayName = "AccordionTrigger";
 
 export interface AccordionContentProps extends React.HTMLAttributes<HTMLDivElement> {
-  value: string;
+  value?: string;
 }
 
 export const AccordionContent = React.forwardRef<HTMLDivElement, AccordionContentProps>(
   ({ value, className, children, ...props }, ref) => {
     const context = useContext(AccordionContext);
+    const itemValue = useContext(AccordionItemContext);
     if (!context) throw new Error("AccordionContent must be used within Accordion");
 
-    const isOpen = context.openItems.includes(value);
+    const effectiveValue = value || itemValue;
+    const isOpen = context.openItems.includes(effectiveValue);
     if (!isOpen) return null;
 
     return (
       <div
         ref={ref}
         className={cn(
-          "px-4 pb-4 pt-0 text-xs sm:text-sm text-slate-400 leading-relaxed border-t border-white/[0.04] mt-1 pt-3 animate-in fade-in-50 duration-200",
+          "px-4 pb-4 pt-1 text-xs text-slate-400 leading-relaxed animate-in fade-in duration-150 border-t border-white/[0.04]",
           className
         )}
         {...props}

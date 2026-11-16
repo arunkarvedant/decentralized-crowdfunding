@@ -1,601 +1,880 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Campaign, CampaignStatus, Contributor, CampaignUpdate } from "@/types/crowdfunding";
-import deployedContracts from "@/contracts/deployedContracts.json";
-import { ethers } from "ethers";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { ethers, Interface } from "ethers";
+import {
+  Campaign,
+  CampaignStatus,
+  Contributor,
+  CampaignUpdate,
+  CampaignMetadata,
+  TransactionState,
+  WalletState,
+} from "@/types/crowdfunding";
+import deployedContractsData from "@/contracts/deployedContracts.json";
 
-// Default test accounts for instant zero-friction developer & user evaluation
-export const DEMO_ACCOUNTS = [
-  {
-    role: "Contributor / Backer",
-    address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    name: "Alex (Backer)",
-    balance: "25.50",
-  },
-  {
-    role: "Creator (Project Owner)",
-    address: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    name: "Sarah (Creator)",
-    balance: "12.40",
-  },
-  {
-    role: "Platform Admin / Multisig",
-    address: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    name: "Admin Multisig",
-    balance: "100.00",
-  },
-];
+const TARGET_RPC_URL =
+  process.env.NEXT_PUBLIC_RPC_URL || "http://127.0.0.1:8545";
+const TARGET_CHAIN_ID = Number(
+  process.env.NEXT_PUBLIC_CHAIN_ID || "31337"
+);
 
-const BASE_TIMESTAMP = 1762250000;
-
-// Rich seed data demonstrating all states: Active, Successful, Failed, Cancelled
-const INITIAL_CAMPAIGNS: Campaign[] = [
-  {
-    id: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-    address: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-    creator: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    title: "ZeroGas: Decentralized L2 Account Abstraction Toolkit",
-    summary: "Open-source developer SDK enabling gasless social-login transactions on Ethereum rollups.",
-    description: `### Overview
-ZeroGas is an open-source public good for Ethereum developers. It bridges ERC-4337 smart contract accounts with session keys and paymasters, removing gas friction for Web3 onboarding.
-
-### Why Crowdfunding?
-We want to keep this protocol completely decentralized and community-funded without VC token governance overhead. Funds will sponsor:
-1. Formal audit by OpenZeppelin or Trail of Bits.
-2. Full open-source TypeScript & Rust client libraries.
-3. Testnet faucet & relayer infrastructure for 1 year.
-
-### Funding Model
-All-or-nothing: If we don't reach our 15 ETH goal before the deadline, every backer can withdraw their contribution instantly.`,
-    category: "Open Source",
-    coverImage: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80",
-    metadataCID: "ipfs://bafybeicg23aon3j3y5k6r6w4bldemg4",
-    goal: "15.0",
-    totalRaised: "11.2",
-    deadline: BASE_TIMESTAMP + 86400 * 12, // 12 days left
-    feeBps: 200,
-    status: "Active",
-    withdrawn: false,
-    cancelled: false,
-    contributorsCount: 18,
-    contributors: [
-      {
-        address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-        amount: "2.5",
-        timestamp: (BASE_TIMESTAMP - 86400 * 2) * 1000,
-        txHash: "0x7f83b1a23c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
-      },
-      {
-        address: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
-        amount: "5.0",
-        timestamp: (BASE_TIMESTAMP - 86400 * 4) * 1000,
-        txHash: "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
-      },
-      {
-        address: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
-        amount: "3.7",
-        timestamp: (BASE_TIMESTAMP - 86400 * 1) * 1000,
-        txHash: "0x3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f",
-      },
-    ],
-    updates: [
-      {
-        cid: "ipfs://bafyupdate1",
-        title: "Architecture Spec v1.0 Finalized",
-        content: "We have finalized the paymaster bundling spec and verified compatibility with Base and Arbitrum.",
-        timestamp: (BASE_TIMESTAMP - 86400 * 3) * 1000,
-      },
-    ],
-    createdAt: (BASE_TIMESTAMP - 86400 * 5) * 1000,
-  },
-  {
-    id: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-    address: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-    creator: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    title: "AuraOS: Privacy-First Local AI Terminal",
-    summary: "Hardware-accelerated edge AI operating system running 100% locally on personal devices.",
-    description: `### Pure Private Intelligence
-AuraOS eliminates cloud telemetry from AI workflows. By orchestrating quantized open-weight models locally, your confidential documents, code, and thoughts never leave your silicon.
-
-### Campaign Milestones
-- **Funded (100% reached!)**: The target 8.0 ETH was successfully met ahead of deadline!
-- Creator can withdraw (total minus 2% platform fee) once deadline lock completes.`,
-    category: "Technology",
-    coverImage: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80",
-    metadataCID: "ipfs://bafybeiauraosmetadata789",
-    goal: "8.0",
-    totalRaised: "9.5",
-    deadline: BASE_TIMESTAMP - 3600 * 4, // Deadline passed!
-    feeBps: 200,
-    status: "Successful",
-    withdrawn: false,
-    cancelled: false,
-    contributorsCount: 14,
-    contributors: [
-      {
-        address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-        amount: "3.5",
-        timestamp: (BASE_TIMESTAMP - 86400 * 8) * 1000,
-      },
-      {
-        address: "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f",
-        amount: "6.0",
-        timestamp: (BASE_TIMESTAMP - 86400 * 9) * 1000,
-      },
-    ],
-    updates: [
-      {
-        cid: "ipfs://bafyupdate2",
-        title: "Goal reached! Preparing hardware delivery specs",
-        content: "Huge thanks to all backers! The 8 ETH goal has been surpassed. Next step is on-chain withdrawal and component orders.",
-        timestamp: (BASE_TIMESTAMP - 3600 * 20) * 1000,
-      },
-    ],
-    createdAt: (BASE_TIMESTAMP - 86400 * 15) * 1000,
-  },
-  {
-    id: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-    address: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-    creator: "0x976EA74026E72CD1133715742add44270b308F6c",
-    title: "SolarGrid: Community Micro-Solar Mesh",
-    summary: "Distributed peer-to-peer solar energy trading microgrids for suburban neighborhoods.",
-    description: `### Project Failed to Reach Goal
-This campaign required 20.0 ETH but only collected 4.5 ETH before the deadline expired.
-Per the all-or-nothing smart contract guarantee, this campaign is in **Failed** state.
-Every contributor is entitled to a **100% full refund** with zero deductions or fees.`,
-    category: "Community",
-    coverImage: "https://images.unsplash.com/photo-1509391365360-2e959784a276?auto=format&fit=crop&w=1200&q=80",
-    metadataCID: "ipfs://bafybeisolargridfail456",
-    goal: "20.0",
-    totalRaised: "4.5",
-    deadline: BASE_TIMESTAMP - 86400 * 2, // Expired 2 days ago
-    feeBps: 200,
-    status: "Failed",
-    withdrawn: false,
-    cancelled: false,
-    contributorsCount: 3,
-    contributors: [
-      {
-        address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-        amount: "2.0",
-        timestamp: (BASE_TIMESTAMP - 86400 * 5) * 1000,
-      },
-      {
-        address: "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
-        amount: "2.5",
-        timestamp: (BASE_TIMESTAMP - 86400 * 6) * 1000,
-      },
-    ],
-    updates: [],
-    createdAt: (BASE_TIMESTAMP - 86400 * 25) * 1000,
-  },
-  {
-    id: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-    address: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-    creator: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-    title: "Neon Echoes: Cyberpunk Sci-Fi Short Film",
-    summary: "Independent 25-minute live-action sci-fi film exploring synthetic consciousness and human memory.",
-    description: `### Film Production
-Shot on anamorphic lenses in Tokyo and Vancouver, Neon Echoes blends practical miniatures with synthetic worldbuilding. Backers receive digital premiere passes and executive producer credits on-chain.`,
-    category: "Art & Film",
-    coverImage: "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80",
-    metadataCID: "ipfs://bafybeineonechoesfilm123",
-    goal: "12.0",
-    totalRaised: "4.8",
-    deadline: BASE_TIMESTAMP + 86400 * 18, // 18 days left
-    feeBps: 200,
-    status: "Active",
-    withdrawn: false,
-    cancelled: false,
-    contributorsCount: 9,
-    contributors: [],
-    updates: [],
-    createdAt: (BASE_TIMESTAMP - 86400 * 2) * 1000,
-  },
-];
+function getDeployment(chainIdNumber: number) {
+  const chainIdStr = chainIdNumber.toString();
+  const raw = deployedContractsData as Record<string, unknown>;
+  if (chainIdStr in raw) {
+    return raw[chainIdStr] as {
+      factoryAddress: string;
+      implementationAddress?: string;
+      factoryAbi: ethers.InterfaceAbi;
+      campaignAbi: ethers.InterfaceAbi;
+      treasuryAddress?: string;
+      feeBps?: number;
+    };
+  }
+  if (raw.chainId === chainIdStr || raw.factoryAddress) {
+    return raw as unknown as {
+      factoryAddress: string;
+      implementationAddress?: string;
+      factoryAbi: ethers.InterfaceAbi;
+      campaignAbi: ethers.InterfaceAbi;
+      treasuryAddress?: string;
+      feeBps?: number;
+    };
+  }
+  if ("31337" in raw) {
+    return raw["31337"] as {
+      factoryAddress: string;
+      implementationAddress?: string;
+      factoryAbi: ethers.InterfaceAbi;
+      campaignAbi: ethers.InterfaceAbi;
+      treasuryAddress?: string;
+      feeBps?: number;
+    };
+  }
+  return raw as unknown as {
+    factoryAddress: string;
+    implementationAddress?: string;
+    factoryAbi: ethers.InterfaceAbi;
+    campaignAbi: ethers.InterfaceAbi;
+    treasuryAddress?: string;
+    feeBps?: number;
+  };
+}
 
 interface Web3ContextType {
-  account: string;
-  accountName: string;
-  balance: string;
-  isRealWallet: boolean;
-  platformFeeBps: number;
-  isPaused: boolean;
+  wallet: WalletState;
+  targetChainId: number;
+  isWrongNetwork: boolean;
   campaigns: Campaign[];
-  connectDemoAccount: (index: number) => void;
-  connectInjectedWallet: () => Promise<void>;
-  createCampaign: (data: {
-    title: string;
-    summary: string;
-    description: string;
-    category: Campaign["category"];
-    coverImage: string;
-    goal: string;
-    durationDays: number;
-  }) => Promise<string>;
-  contribute: (campaignAddress: string, amountEth: string) => Promise<void>;
-  withdraw: (campaignAddress: string) => Promise<void>;
-  claimRefund: (campaignAddress: string) => Promise<void>;
-  cancelCampaign: (campaignAddress: string) => Promise<void>;
-  postUpdate: (campaignAddress: string, title: string, content: string) => Promise<void>;
-  flagCampaign: (campaignAddress: string, reason: string) => Promise<void>;
-  updateFeeBps: (newFeeBps: number) => Promise<void>;
-  togglePause: () => Promise<void>;
-  contractAddresses: {
-    factory: string;
-    implementation: string;
-    treasury: string;
-  };
+  loadingCampaigns: boolean;
+  txState: TransactionState;
+  factoryOwner: string | null;
+  factoryTreasury: string | null;
+  factoryFeeBps: number;
+  isPaused: boolean;
+  isOwner: boolean;
+  resetTxState: () => void;
+  connectWallet: () => Promise<void>;
+  disconnectWallet: () => void;
+  switchNetwork: (chainId?: number) => Promise<void>;
+  refreshCampaigns: () => Promise<void>;
+  getCampaign: (address: string) => Campaign | undefined;
+  getUserContribution: (campaignAddress: string, userAddress?: string) => Promise<bigint>;
+  getPaginatedContributors: (campaignAddress: string, offset: number, limit: number) => Promise<Contributor[]>;
+  createCampaign: (goalEth: string, durationDays: number, metadata: CampaignMetadata) => Promise<string>;
+  contribute: (campaignAddress: string, amountEth: string) => Promise<ethers.ContractTransactionReceipt>;
+  withdraw: (campaignAddress: string) => Promise<ethers.ContractTransactionReceipt>;
+  withdrawTo: (campaignAddress: string, recipient: string) => Promise<ethers.ContractTransactionReceipt>;
+  claimFee: (campaignAddress: string) => Promise<ethers.ContractTransactionReceipt>;
+  refund: (campaignAddress: string) => Promise<ethers.ContractTransactionReceipt>;
+  cancel: (campaignAddress: string) => Promise<ethers.ContractTransactionReceipt>;
+  postUpdate: (campaignAddress: string, title: string, content: string) => Promise<ethers.ContractTransactionReceipt>;
+  flagCampaign: (campaignAddress: string, reason: string) => Promise<ethers.ContractTransactionReceipt>;
+  setFeeBps: (newFeeBps: number) => Promise<ethers.ContractTransactionReceipt>;
+  pauseFactory: () => Promise<ethers.ContractTransactionReceipt>;
+  unpauseFactory: () => Promise<ethers.ContractTransactionReceipt>;
 }
 
 const Web3Context = createContext<Web3ContextType | undefined>(undefined);
 
-export const Web3Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [account, setAccount] = useState<string>(DEMO_ACCOUNTS[0].address);
-  const [accountName, setAccountName] = useState<string>(DEMO_ACCOUNTS[0].name);
-  const [balance, setBalance] = useState<string>(DEMO_ACCOUNTS[0].balance);
-  const [isRealWallet, setIsRealWallet] = useState<boolean>(false);
-  const [platformFeeBps, setPlatformFeeBps] = useState<number>(200); // 2%
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [campaigns, setCampaigns] = useState<Campaign[]>(INITIAL_CAMPAIGNS);
+function decodeContractError(error: unknown, iface?: Interface): string {
+  if (!error) return "Unknown error occurred";
+  const err = error as {
+    code?: string | number;
+    reason?: string;
+    shortMessage?: string;
+    message?: string;
+    data?: string;
+    info?: { error?: { data?: string } };
+  };
 
-  // Load state from localStorage on client
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        const savedCampaigns = localStorage.getItem("crowdr_eth_campaigns");
-        if (savedCampaigns) {
-          setCampaigns(JSON.parse(savedCampaigns));
-        }
-        const savedFee = localStorage.getItem("crowdr_fee_bps");
-        if (savedFee) {
-          setPlatformFeeBps(Number(savedFee));
-        }
-      } catch {
-        // ignore
+  // User rejection
+  if (
+    err.code === "ACTION_REJECTED" ||
+    err.code === 4001 ||
+    err.message?.includes("user rejected") ||
+    err.message?.includes("User rejected the request")
+  ) {
+    return "Transaction was cancelled in wallet.";
+  }
+
+  // Contract revert with reason string
+  if (err.reason) {
+    return err.reason;
+  }
+
+  // Parse custom errors if data payload exists
+  const rawData = err.data || err.info?.error?.data;
+  if (rawData && iface) {
+    try {
+      const parsed = iface.parseError(rawData);
+      if (parsed) {
+        if (parsed.name === "EnforcedPause") return "Campaign actions are currently paused by the platform.";
+        if (parsed.name === "OwnableUnauthorizedAccount") return "Unauthorized: action restricted to platform owner.";
+        if (parsed.name === "ReentrancyGuardReentrantCall") return "Reentrancy detected: call aborted.";
+        return `Contract error: ${parsed.name}`;
       }
-    }, 0);
-    return () => clearTimeout(timer);
+    } catch {
+      // ignore parse failure and proceed
+    }
+  }
+
+  if (err.shortMessage) return err.shortMessage;
+  if (err.message) return err.message;
+  return "Transaction failed on-chain.";
+}
+
+export const Web3Provider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [wallet, setWallet] = useState<WalletState>({
+    address: null,
+    chainId: null,
+    balance: 0n,
+    isConnected: false,
+    isConnecting: false,
+    isMetaMask: false,
+  });
+
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loadingCampaigns, setLoadingCampaigns] = useState<boolean>(true);
+  const [txState, setTxState] = useState<TransactionState>({ status: "idle" });
+
+  const [factoryOwner, setFactoryOwner] = useState<string | null>(null);
+  const [factoryTreasury, setFactoryTreasury] = useState<string | null>(null);
+  const [factoryFeeBps, setFactoryFeeBps] = useState<number>(200);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+
+  const isWrongNetwork =
+    wallet.isConnected && wallet.chainId !== null && wallet.chainId !== TARGET_CHAIN_ID;
+
+  const isOwner =
+    !!wallet.address &&
+    !!factoryOwner &&
+    wallet.address.toLowerCase() === factoryOwner.toLowerCase();
+
+  const resetTxState = useCallback(() => {
+    setTxState({ status: "idle" });
   }, []);
 
-  // Save campaigns to localStorage
-  const persistCampaigns = (newCampaigns: Campaign[]) => {
-    setCampaigns(newCampaigns);
+  // Read-only JSON-RPC provider (never prompts wallet)
+  const getReadProvider = useCallback(() => {
+    return new ethers.JsonRpcProvider(TARGET_RPC_URL);
+  }, []);
+
+  // Signer provider via connected window.ethereum
+  const getBrowserSigner = useCallback(async () => {
+    if (typeof window === "undefined" || !window.ethereum) {
+      throw new Error("No EVM wallet detected. Please install MetaMask, Rabby, or Coinbase Wallet.");
+    }
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) !== TARGET_CHAIN_ID) {
+      throw new Error(`Wrong network. Please switch to chain ${TARGET_CHAIN_ID}.`);
+    }
+    return provider.getSigner();
+  }, []);
+
+  // Fetch all campaigns and metadata directly from on-chain RPC
+  const refreshCampaigns = useCallback(async () => {
+    await Promise.resolve();
+    setLoadingCampaigns(true);
     try {
-      localStorage.setItem("crowdr_eth_campaigns", JSON.stringify(newCampaigns));
-    } catch {
-      // ignore
-    }
-  };
+      const readProvider = getReadProvider();
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      if (!deployment?.factoryAddress) {
+        console.warn("Factory address not configured in deployedContracts.json");
+        setCampaigns([]);
+        setLoadingCampaigns(false);
+        return;
+      }
 
-  const connectDemoAccount = (index: number) => {
-    const acc = DEMO_ACCOUNTS[index % DEMO_ACCOUNTS.length];
-    setAccount(acc.address);
-    setAccountName(acc.name);
-    setBalance(acc.balance);
-    setIsRealWallet(false);
-  };
+      const factoryContract = new ethers.Contract(
+        deployment.factoryAddress,
+        deployment.factoryAbi,
+        readProvider
+      );
 
-  const connectInjectedWallet = async () => {
-    if (typeof window !== "undefined" && (window as unknown as { ethereum?: unknown }).ethereum) {
-      try {
-        const provider = new ethers.BrowserProvider((window as unknown as { ethereum: ethers.Eip1193Provider }).ethereum);
-        const accounts = await provider.send("eth_requestAccounts", []);
-        if (accounts.length > 0) {
-          const userAddress = accounts[0];
-          setAccount(userAddress);
-          setAccountName("Connected Wallet");
-          const bal = await provider.getBalance(userAddress);
-          setBalance(parseFloat(ethers.formatEther(bal)).toFixed(4));
-          setIsRealWallet(true);
+      // Read factory configs in parallel
+      const [ownerAddr, treasuryAddr, fee, paused, campaignAddrs] = await Promise.all([
+        factoryContract.owner().catch(() => null),
+        factoryContract.treasury().catch(() => null),
+        factoryContract.feeBps().catch(() => 200n),
+        factoryContract.paused().catch(() => false),
+        factoryContract.getAllCampaigns().catch(() => [] as string[]),
+      ]);
+
+      setFactoryOwner(ownerAddr);
+      setFactoryTreasury(treasuryAddr);
+      setFactoryFeeBps(Number(fee));
+      setIsPaused(paused);
+
+      if (!campaignAddrs || campaignAddrs.length === 0) {
+        setCampaigns([]);
+        setLoadingCampaigns(false);
+        return;
+      }
+
+      // Read each campaign via getDetails()
+      const campaignPromises = campaignAddrs.map(async (addr: string): Promise<Campaign | null> => {
+        try {
+          const campaignContract = new ethers.Contract(
+            addr,
+            deployment.campaignAbi,
+            readProvider
+          );
+
+          const [details, feeOwed, rawUpdates] = await Promise.all([
+            campaignContract.getDetails(),
+            campaignContract.feeOwed().catch(() => 0n),
+            campaignContract.getUpdates().catch(() => []),
+          ]);
+
+          let metadata: CampaignMetadata = {
+            title: `Campaign ${addr.slice(0, 6)}...${addr.slice(-4)}`,
+            summary: "Decentralized Crowdfunding Campaign on Ethereum",
+            description: "No description provided for this campaign.",
+            category: "Technology",
+            coverImage: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80",
+          };
+
+          const cid = details.metadataCID as string;
+          if (cid) {
+            if (cid.startsWith("data:application/json;base64,")) {
+              try {
+                const base64Data = cid.replace("data:application/json;base64,", "");
+                const decoded = JSON.parse(
+                  typeof window !== "undefined"
+                    ? atob(base64Data)
+                    : Buffer.from(base64Data, "base64").toString("utf-8")
+                );
+                metadata = { ...metadata, ...decoded };
+              } catch {
+                // Keep default metadata
+              }
+            } else if (cid.startsWith("ipfs://") || cid.startsWith("bafy") || cid.startsWith("Qm")) {
+              const hash = cid.replace("ipfs://", "");
+              try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3500);
+                const res = await fetch(`https://gateway.pinata.cloud/ipfs/${hash}`, {
+                  signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                if (res.ok) {
+                  const fetchedData = await res.json();
+                  metadata = { ...metadata, ...fetchedData };
+                }
+              } catch {
+                // Keep default metadata if IPFS gateway is slow or unreachable
+              }
+            }
+          }
+
+          const updates: CampaignUpdate[] = (rawUpdates || []).map(
+            (u: { cid: string; timestamp: bigint }, idx: number) => ({
+              id: `${addr}-update-${idx}`,
+              timestamp: BigInt(u.timestamp),
+              title: `Update #${idx + 1}`,
+              content: u.cid,
+            })
+          );
+
+          return {
+            address: details.campaignAddress,
+            creator: details.creator,
+            treasury: details.treasury,
+            goal: BigInt(details.goal),
+            deadline: BigInt(details.deadline),
+            totalRaised: BigInt(details.totalRaised),
+            contributorCount: Number(details.contributorCount),
+            status: Number(details.status) as CampaignStatus,
+            feeBps: Number(details.feeBps),
+            feeOwed: BigInt(feeOwed),
+            minContribution: BigInt(details.minContribution),
+            withdrawn: Boolean(details.withdrawn),
+            cancelled: Boolean(details.cancelled),
+            metadataCID: cid,
+            title: metadata.title,
+            summary: metadata.summary || metadata.title,
+            description: metadata.description,
+            category: metadata.category || "Technology",
+            coverImage: metadata.coverImage || "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80",
+            updates,
+          };
+        } catch (err) {
+          console.error(`Failed to load details for campaign ${addr}:`, err);
+          return null;
         }
-      } catch (err) {
-        console.error("Failed to connect wallet:", err);
-      }
-    } else {
-      alert("No Ethereum browser wallet (MetaMask, Rabby, etc.) detected. Using demo account mode.");
+      });
+
+      const loaded = (await Promise.all(campaignPromises)).filter(
+        (c): c is Campaign => c !== null
+      );
+      setCampaigns(loaded);
+    } catch (error) {
+      console.error("Failed to refresh campaigns:", error);
+    } finally {
+      setLoadingCampaigns(false);
     }
-  };
+  }, [getReadProvider]);
 
-  const createCampaign = async (data: {
-    title: string;
-    summary: string;
-    description: string;
-    category: Campaign["category"];
-    coverImage: string;
-    goal: string;
-    durationDays: number;
-  }): Promise<string> => {
-    if (isPaused) {
-      throw new Error("Campaign creation is currently paused by admin.");
-    }
+  // Load campaigns on initial mount
+  useEffect(() => {
+    refreshCampaigns();
+  }, [refreshCampaigns]);
 
-    // Generate simulated deterministic address / CID
-    const randomHex = Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, "0");
-    const newAddress = `0x${randomHex}A1b2C3d4E5f6789012345678901234567890`.slice(0, 42);
-    const metadataCID = `ipfs://bafy${randomHex}${Date.now()}`;
-    const deadline = Math.floor(Date.now() / 1000) + data.durationDays * 86400;
-
-    const newCampaign: Campaign = {
-      id: newAddress,
-      address: newAddress,
-      creator: account,
-      title: data.title,
-      summary: data.summary,
-      description: data.description,
-      category: data.category,
-      coverImage: data.coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
-      metadataCID,
-      goal: parseFloat(data.goal).toFixed(2),
-      totalRaised: "0.0",
-      deadline,
-      feeBps: platformFeeBps,
-      status: "Active",
-      withdrawn: false,
-      cancelled: false,
-      contributorsCount: 0,
-      contributors: [],
-      updates: [],
-      createdAt: Date.now(),
-    };
-
-    const updated = [newCampaign, ...campaigns];
-    persistCampaigns(updated);
-    return newAddress;
-  };
-
-  const contribute = async (campaignAddress: string, amountEth: string) => {
-    const val = parseFloat(amountEth);
-    if (isNaN(val) || val < 0.001) {
-      throw new Error("Minimum contribution is 0.001 ETH.");
+  // Wallet connection & state synchronization
+  const updateWalletState = useCallback(async (account: string | null) => {
+    if (!account || typeof window === "undefined" || !window.ethereum) {
+      setWallet({
+        address: null,
+        chainId: null,
+        balance: 0n,
+        isConnected: false,
+        isConnecting: false,
+        isMetaMask: false,
+      });
+      return;
     }
 
-    const target = campaigns.find((c) => c.address.toLowerCase() === campaignAddress.toLowerCase());
-    if (!target) throw new Error("Campaign not found.");
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const [network, balance] = await Promise.all([
+        provider.getNetwork(),
+        provider.getBalance(account),
+      ]);
 
-    if (target.creator.toLowerCase() === account.toLowerCase()) {
-      throw new Error("FR-9: Campaign creators cannot contribute to their own campaign.");
-    }
-
-    if (target.status !== "Active" || Math.floor(Date.now() / 1000) >= target.deadline) {
-      throw new Error("Campaign is not currently accepting contributions.");
-    }
-
-    const currentTotal = parseFloat(target.totalRaised) + val;
-    const newContributor: Contributor = {
-      address: account,
-      amount: val.toFixed(3),
-      timestamp: Date.now(),
-      txHash: "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(""),
-    };
-
-    const updated = campaigns.map((c) => {
-      if (c.address.toLowerCase() === campaignAddress.toLowerCase()) {
-        return {
-          ...c,
-          totalRaised: currentTotal.toFixed(3),
-          contributorsCount: c.contributorsCount + 1,
-          contributors: [newContributor, ...c.contributors],
-        };
-      }
-      return c;
-    });
-
-    persistCampaigns(updated);
-
-    // Deduct from demo account balance
-    const currentAccBal = parseFloat(balance);
-    if (!isNaN(currentAccBal) && currentAccBal >= val) {
-      setBalance((currentAccBal - val).toFixed(4));
-    }
-  };
-
-  const withdraw = async (campaignAddress: string) => {
-    const target = campaigns.find((c) => c.address.toLowerCase() === campaignAddress.toLowerCase());
-    if (!target) throw new Error("Campaign not found.");
-
-    if (target.creator.toLowerCase() !== account.toLowerCase()) {
-      throw new Error("FR-18: Only the campaign creator can withdraw funds.");
-    }
-
-    const isGoalMet = parseFloat(target.totalRaised) >= parseFloat(target.goal);
-    const isDeadlinePassed = Math.floor(Date.now() / 1000) >= target.deadline;
-
-    if (!isGoalMet || !isDeadlinePassed) {
-      throw new Error("FR-18: Funds can only be withdrawn once goal is met and deadline has passed.");
-    }
-
-    if (target.withdrawn) {
-      throw new Error("FR-20: Funds have already been withdrawn.");
-    }
-
-    const raised = parseFloat(target.totalRaised);
-    const fee = (raised * target.feeBps) / 10000;
-    const creatorNet = raised - fee;
-
-    const updated = campaigns.map((c) => {
-      if (c.address.toLowerCase() === campaignAddress.toLowerCase()) {
-        return {
-          ...c,
-          status: "Withdrawn" as CampaignStatus,
-          withdrawn: true,
-        };
-      }
-      return c;
-    });
-
-    persistCampaigns(updated);
-
-    // Credit creator balance
-    const currentAccBal = parseFloat(balance);
-    if (!isNaN(currentAccBal)) {
-      setBalance((currentAccBal + creatorNet).toFixed(4));
-    }
-  };
-
-  const claimRefund = async (campaignAddress: string) => {
-    const target = campaigns.find((c) => c.address.toLowerCase() === campaignAddress.toLowerCase());
-    if (!target) throw new Error("Campaign not found.");
-
-    const isDeadlinePassed = Math.floor(Date.now() / 1000) >= target.deadline;
-    const isGoalMissed = parseFloat(target.totalRaised) < parseFloat(target.goal);
-    const isRefundable = (isDeadlinePassed && isGoalMissed) || target.cancelled || target.status === "Failed";
-
-    if (!isRefundable) {
-      throw new Error("FR-21: Refunds are only available on Failed or Cancelled campaigns.");
-    }
-
-    // Find all contributions made by this account
-    const myContributions = target.contributors.filter(
-      (ct) => ct.address.toLowerCase() === account.toLowerCase()
-    );
-
-    const totalRefund = myContributions.reduce((acc, ct) => acc + parseFloat(ct.amount), 0);
-    if (totalRefund <= 0) {
-      throw new Error("No active contribution found for this wallet.");
-    }
-
-    // Pull pattern: zero out contributions for this account
-    const updatedContributors = target.contributors.filter(
-      (ct) => ct.address.toLowerCase() !== account.toLowerCase()
-    );
-
-    const updated = campaigns.map((c) => {
-      if (c.address.toLowerCase() === campaignAddress.toLowerCase()) {
-        return {
-          ...c,
-          contributors: updatedContributors,
-          status: "Failed" as CampaignStatus,
-        };
-      }
-      return c;
-    });
-
-    persistCampaigns(updated);
-
-    // Credit contributor balance with 100% full refund
-    const currentAccBal = parseFloat(balance);
-    if (!isNaN(currentAccBal)) {
-      setBalance((currentAccBal + totalRefund).toFixed(4));
-    }
-  };
-
-  const cancelCampaign = async (campaignAddress: string) => {
-    const target = campaigns.find((c) => c.address.toLowerCase() === campaignAddress.toLowerCase());
-    if (!target) throw new Error("Campaign not found.");
-
-    if (target.creator.toLowerCase() !== account.toLowerCase()) {
-      throw new Error("Only the creator can cancel this campaign.");
-    }
-
-    if (parseFloat(target.totalRaised) > 0) {
-      throw new Error("Cannot cancel a campaign after receiving contributions.");
-    }
-
-    const updated = campaigns.map((c) => {
-      if (c.address.toLowerCase() === campaignAddress.toLowerCase()) {
-        return {
-          ...c,
-          cancelled: true,
-          status: "Cancelled" as CampaignStatus,
-        };
-      }
-      return c;
-    });
-
-    persistCampaigns(updated);
-  };
-
-  const postUpdate = async (campaignAddress: string, title: string, content: string) => {
-    const target = campaigns.find((c) => c.address.toLowerCase() === campaignAddress.toLowerCase());
-    if (!target) throw new Error("Campaign not found.");
-
-    if (target.creator.toLowerCase() !== account.toLowerCase()) {
-      throw new Error("FR-27: Only the campaign creator can post updates.");
-    }
-
-    const newUpdate: CampaignUpdate = {
-      cid: `ipfs://bafyupd${Date.now()}`,
-      title,
-      content,
-      timestamp: Date.now(),
-      txHash: "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(""),
-    };
-
-    const updated = campaigns.map((c) => {
-      if (c.address.toLowerCase() === campaignAddress.toLowerCase()) {
-        return {
-          ...c,
-          updates: [newUpdate, ...c.updates],
-        };
-      }
-      return c;
-    });
-
-    persistCampaigns(updated);
-  };
-
-  const flagCampaign = async (campaignAddress: string, reason: string) => {
-    // Admin action
-    const updated = campaigns.map((c) => {
-      if (c.address.toLowerCase() === campaignAddress.toLowerCase()) {
-        return {
-          ...c,
-          cancelled: true,
-          status: "Cancelled" as CampaignStatus,
-          summary: `[FLAGGED BY ADMIN: ${reason}] ${c.summary}`,
-        };
-      }
-      return c;
-    });
-
-    persistCampaigns(updated);
-  };
-
-  const updateFeeBps = async (newFeeBps: number) => {
-    if (newFeeBps > 500) {
-      throw new Error("FR-30: Platform fee is capped at 500 bps (5%).");
-    }
-    setPlatformFeeBps(newFeeBps);
-    localStorage.setItem("crowdr_fee_bps", newFeeBps.toString());
-  };
-
-  const togglePause = async () => {
-    setIsPaused((prev) => !prev);
-  };
-
-  return (
-    <Web3Context.Provider
-      value={{
-        account,
-        accountName,
+      setWallet({
+        address: ethers.getAddress(account),
+        chainId: Number(network.chainId),
         balance,
-        isRealWallet,
-        platformFeeBps,
-        isPaused,
-        campaigns,
-        connectDemoAccount,
-        connectInjectedWallet,
-        createCampaign,
-        contribute,
-        withdraw,
-        claimRefund,
-        cancelCampaign,
-        postUpdate,
-        flagCampaign,
-        updateFeeBps,
-        togglePause,
-        contractAddresses: {
-          factory: deployedContracts.factoryAddress,
-          implementation: deployedContracts.implementationAddress,
-          treasury: deployedContracts.treasuryAddress,
-        },
-      }}
-    >
-      {children}
-    </Web3Context.Provider>
+        isConnected: true,
+        isConnecting: false,
+        isMetaMask: Boolean(window.ethereum.isMetaMask),
+      });
+    } catch (err) {
+      console.error("Failed to update wallet state:", err);
+    }
+  }, []);
+
+  // Silent restore on mount (eth_accounts) & event listeners
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.ethereum) return;
+
+    const handleAccountsChanged = (accounts: unknown) => {
+      const accs = accounts as string[];
+      if (!accs || accs.length === 0) {
+        updateWalletState(null);
+      } else {
+        updateWalletState(accs[0]);
+      }
+    };
+
+    const handleChainChanged = () => {
+      // Reload or refresh on chain change
+      window.location.reload();
+    };
+
+    window.ethereum
+      .request({ method: "eth_accounts" })
+      .then((accounts: unknown) => {
+        const accs = accounts as string[];
+        if (accs && accs.length > 0) {
+          updateWalletState(accs[0]);
+        }
+      })
+      .catch((err: unknown) => console.warn("eth_accounts silent restore failed:", err));
+
+    window.ethereum.on?.("accountsChanged", handleAccountsChanged);
+    window.ethereum.on?.("chainChanged", handleChainChanged);
+
+    return () => {
+      window.ethereum?.removeListener?.("accountsChanged", handleAccountsChanged);
+      window.ethereum?.removeListener?.("chainChanged", handleChainChanged);
+    };
+  }, [updateWalletState]);
+
+  const connectWallet = useCallback(async () => {
+    if (typeof window === "undefined" || !window.ethereum) {
+      alert("No EVM wallet found. Please install MetaMask, Rabby, or Coinbase Wallet.");
+      return;
+    }
+
+    setWallet((prev) => ({ ...prev, isConnecting: true }));
+    try {
+      const accounts = (await window.ethereum.request({
+        method: "eth_requestAccounts",
+      })) as string[];
+
+      if (accounts && accounts.length > 0) {
+        await updateWalletState(accounts[0]);
+      }
+    } catch (err) {
+      console.error("Wallet connection failed:", err);
+    } finally {
+      setWallet((prev) => ({ ...prev, isConnecting: false }));
+    }
+  }, [updateWalletState]);
+
+  const disconnectWallet = useCallback(() => {
+    setWallet({
+      address: null,
+      chainId: null,
+      balance: 0n,
+      isConnected: false,
+      isConnecting: false,
+      isMetaMask: false,
+    });
+  }, []);
+
+  const switchNetwork = useCallback(async (desiredChainId = TARGET_CHAIN_ID) => {
+    if (typeof window === "undefined" || !window.ethereum) return;
+    const hexChainId = `0x${desiredChainId.toString(16)}`;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hexChainId }],
+      });
+    } catch (switchError: unknown) {
+      const err = switchError as { code: number };
+      if (err.code === 4902) {
+        if (desiredChainId === 31337) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: hexChainId,
+                chainName: "Hardhat Local",
+                nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+                rpcUrls: [TARGET_RPC_URL],
+              },
+            ],
+          });
+        } else if (desiredChainId === 11155111) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: hexChainId,
+                chainName: "Sepolia Testnet",
+                nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+                rpcUrls: ["https://rpc.sepolia.org"],
+                blockExplorerUrls: ["https://sepolia.etherscan.io"],
+              },
+            ],
+          });
+        }
+      } else {
+        throw switchError;
+      }
+    }
+  }, []);
+
+  const getCampaign = useCallback(
+    (address: string) => {
+      return campaigns.find(
+        (c) => c.address.toLowerCase() === address.toLowerCase()
+      );
+    },
+    [campaigns]
   );
+
+  const getUserContribution = useCallback(
+    async (campaignAddress: string, userAddress?: string): Promise<bigint> => {
+      const account = userAddress || wallet.address;
+      if (!account) return 0n;
+      try {
+        const readProvider = getReadProvider();
+        const deployment = getDeployment(TARGET_CHAIN_ID);
+        const contract = new ethers.Contract(
+          campaignAddress,
+          deployment.campaignAbi,
+          readProvider
+        );
+        const amount = await contract.contributions(account);
+        return BigInt(amount);
+      } catch (err) {
+        console.error(`Failed to fetch user contribution for ${campaignAddress}:`, err);
+        return 0n;
+      }
+    },
+    [getReadProvider, wallet.address]
+  );
+
+  const getPaginatedContributors = useCallback(
+    async (campaignAddress: string, offset: number, limit: number): Promise<Contributor[]> => {
+      try {
+        const readProvider = getReadProvider();
+        const deployment = getDeployment(TARGET_CHAIN_ID);
+        const contract = new ethers.Contract(
+          campaignAddress,
+          deployment.campaignAbi,
+          readProvider
+        );
+        const addrs: string[] = await contract["getContributors(uint256,uint256)"](offset, limit);
+        const results = await Promise.all(
+          addrs.map(async (addr: string) => {
+            const amount = await contract.contributions(addr);
+            return {
+              address: addr,
+              amount: BigInt(amount),
+            };
+          })
+        );
+        return results;
+      } catch (err) {
+        console.error("Failed to get paginated contributors:", err);
+        return [];
+      }
+    },
+    [getReadProvider]
+  );
+
+  // General write executor with staticCall pre-simulation
+  const executeContractWrite = useCallback(
+    async (
+      contractAddress: string,
+      abi: ethers.InterfaceAbi,
+      methodName: string,
+      args: unknown[],
+      value: bigint = 0n
+    ): Promise<ethers.ContractTransactionReceipt> => {
+      setTxState({ status: "awaitingSignature" });
+      const iface = new Interface(abi);
+
+      try {
+        const signer = await getBrowserSigner();
+        const contract = new ethers.Contract(contractAddress, abi, signer);
+
+        // 1. Static call simulation to catch reverts before spending gas
+        try {
+          await contract[methodName].staticCall(...args, { value });
+        } catch (simError) {
+          const decodedMessage = decodeContractError(simError, iface);
+          setTxState({ status: "failed", error: decodedMessage });
+          throw new Error(decodedMessage);
+        }
+
+        // 2. Broadcast transaction
+        const tx: ethers.ContractTransactionResponse = await contract[methodName](...args, {
+          value,
+        });
+
+        setTxState({
+          status: "pending",
+          txHash: tx.hash,
+        });
+
+        // 3. Await receipt confirmation
+        const receipt = await tx.wait();
+        if (!receipt || receipt.status !== 1) {
+          throw new Error("Transaction execution failed on-chain.");
+        }
+
+        setTxState({
+          status: "confirmed",
+          txHash: tx.hash,
+        });
+
+        // Refresh campaign states and wallet balance
+        refreshCampaigns();
+        if (wallet.address) updateWalletState(wallet.address);
+
+        return receipt;
+      } catch (error: unknown) {
+        const decodedMessage = decodeContractError(error, iface);
+        setTxState((prev) => ({
+          status: "failed",
+          txHash: prev.txHash,
+          error: decodedMessage,
+        }));
+        throw new Error(decodedMessage);
+      }
+    },
+    [getBrowserSigner, refreshCampaigns, updateWalletState, wallet.address]
+  );
+
+  // Campaign creation
+  const createCampaign = useCallback(
+    async (goalEth: string, durationDays: number, metadata: CampaignMetadata): Promise<string> => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      const goalWei = ethers.parseEther(goalEth);
+      const durationSeconds = BigInt(durationDays * 86400);
+
+      // Pin metadata via /api/pin route
+      const pinRes = await fetch("/api/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(metadata),
+      });
+
+      if (!pinRes.ok) {
+        const errJson = await pinRes.json();
+        throw new Error(errJson.error || "Failed to pin campaign metadata.");
+      }
+
+      const { cid } = await pinRes.json();
+
+      const receipt = await executeContractWrite(
+        deployment.factoryAddress,
+        deployment.factoryAbi,
+        "createCampaign",
+        [goalWei, durationSeconds, cid]
+      );
+
+      // Parse CampaignCreated event to retrieve campaign address
+      const iface = new Interface(deployment.factoryAbi);
+      let campaignAddress = "";
+      for (const log of receipt.logs) {
+        try {
+          const parsed = iface.parseLog({
+            topics: log.topics as string[],
+            data: log.data,
+          });
+          if (parsed && parsed.name === "CampaignCreated") {
+            campaignAddress = parsed.args[0];
+            break;
+          }
+        } catch {
+          // ignore logs from other contracts
+        }
+      }
+
+      await refreshCampaigns();
+      return campaignAddress;
+    },
+    [executeContractWrite, refreshCampaigns]
+  );
+
+  // Contribute ETH
+  const contribute = useCallback(
+    async (campaignAddress: string, amountEth: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      const amountWei = ethers.parseEther(amountEth);
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "contribute",
+        [],
+        amountWei
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Creator withdraw to sender
+  const withdraw = useCallback(
+    async (campaignAddress: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "withdraw",
+        []
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Creator withdraw to alternative recipient
+  const withdrawTo = useCallback(
+    async (campaignAddress: string, recipient: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      if (!ethers.isAddress(recipient)) {
+        throw new Error("Invalid recipient Ethereum address.");
+      }
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "withdrawTo",
+        [recipient]
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Treasury claim platform fee
+  const claimFee = useCallback(
+    async (campaignAddress: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "claimFee",
+        []
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Contributor 100% full refund
+  const refund = useCallback(
+    async (campaignAddress: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "refund",
+        []
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Creator cancel campaign
+  const cancel = useCallback(
+    async (campaignAddress: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "cancel",
+        []
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Post milestone update
+  const postUpdate = useCallback(
+    async (campaignAddress: string, title: string, content: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      const updateData = { title, content, timestamp: Date.now() };
+
+      const pinRes = await fetch("/api/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!pinRes.ok) {
+        throw new Error("Failed to pin milestone update to IPFS.");
+      }
+
+      const { cid } = await pinRes.json();
+
+      return executeContractWrite(
+        campaignAddress,
+        deployment.campaignAbi,
+        "postUpdate",
+        [cid]
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Admin flag campaign
+  const flagCampaign = useCallback(
+    async (campaignAddress: string, reason: string) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      return executeContractWrite(
+        deployment.factoryAddress,
+        deployment.factoryAbi,
+        "flagCampaign",
+        [campaignAddress, reason]
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Admin set fee
+  const setFeeBps = useCallback(
+    async (newFeeBps: number) => {
+      const deployment = getDeployment(TARGET_CHAIN_ID);
+      return executeContractWrite(
+        deployment.factoryAddress,
+        deployment.factoryAbi,
+        "setFeeBps",
+        [BigInt(newFeeBps)]
+      );
+    },
+    [executeContractWrite]
+  );
+
+  // Admin emergency pause
+  const pauseFactory = useCallback(async () => {
+    const deployment = getDeployment(TARGET_CHAIN_ID);
+    return executeContractWrite(
+      deployment.factoryAddress,
+      deployment.factoryAbi,
+      "pause",
+      []
+    );
+  }, [executeContractWrite]);
+
+  // Admin emergency unpause
+  const unpauseFactory = useCallback(async () => {
+    const deployment = getDeployment(TARGET_CHAIN_ID);
+    return executeContractWrite(
+      deployment.factoryAddress,
+      deployment.factoryAbi,
+      "unpause",
+      []
+    );
+  }, [executeContractWrite]);
+
+  const value: Web3ContextType = {
+    wallet,
+    targetChainId: TARGET_CHAIN_ID,
+    isWrongNetwork,
+    campaigns,
+    loadingCampaigns,
+    txState,
+    factoryOwner,
+    factoryTreasury,
+    factoryFeeBps,
+    isPaused,
+    isOwner,
+    resetTxState,
+    connectWallet,
+    disconnectWallet,
+    switchNetwork,
+    refreshCampaigns,
+    getCampaign,
+    getUserContribution,
+    getPaginatedContributors,
+    createCampaign,
+    contribute,
+    withdraw,
+    withdrawTo,
+    claimFee,
+    refund,
+    cancel,
+    postUpdate,
+    flagCampaign,
+    setFeeBps,
+    pauseFactory,
+    unpauseFactory,
+  };
+
+  return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;
 };
 
 export const useWeb3 = () => {

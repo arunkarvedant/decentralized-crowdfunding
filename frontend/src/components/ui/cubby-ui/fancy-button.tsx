@@ -11,6 +11,10 @@ const fancyButtonVariants = cva(
       variant: {
         default:
           "bg-slate-900 text-slate-100 border border-slate-700/80 hover:bg-slate-800/90 hover:border-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.5)] active:shadow-inner",
+        glow:
+          "bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border border-emerald-400/50 hover:from-emerald-300 hover:to-emerald-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_12px_rgba(16,185,129,0.35)] active:shadow-inner font-bold",
+        destructive:
+          "bg-gradient-to-b from-rose-500 to-rose-700 text-white border border-rose-500/40 hover:from-rose-400 hover:to-rose-600 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_2px_8px_rgba(244,63,94,0.25)] active:shadow-inner font-bold",
         primary:
           "bg-gradient-to-b from-emerald-400 to-emerald-600 text-slate-950 border border-emerald-400/50 hover:from-emerald-300 hover:to-emerald-500 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_8px_rgba(16,185,129,0.25)] active:shadow-inner font-bold",
         emerald:

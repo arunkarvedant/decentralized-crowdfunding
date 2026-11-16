@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { AppShell } from "@/components/AppShell";
 
 const inter = localFont({
   src: "./fonts/Inter.woff2",
@@ -22,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased dark`}>
       <body className="min-h-full flex flex-col font-sans bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950">
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
