@@ -17,7 +17,14 @@ import {
   ExternalLink,
   Sparkles,
 } from "lucide-react";
-import { FancyButton, MarchingBorder, Meter } from "@/components/ui/cubby-ui";
+import {
+  FancyButton,
+  MarchingBorder,
+  Meter,
+  StatCard,
+  Badge,
+  Card,
+} from "@/components/ui/cubby-ui";
 
 interface CreatorDashboardViewProps {
   onSelectCampaign: (address: string) => void;
@@ -30,7 +37,6 @@ export const CreatorDashboardView: React.FC<CreatorDashboardViewProps> = ({
 }) => {
   const { account, campaigns, withdraw, cancelCampaign, postUpdate } = useWeb3();
 
-  const [activeTab, setActiveTab] = useState<"all" | "active" | "successful" | "ended">("all");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -115,7 +121,7 @@ export const CreatorDashboardView: React.FC<CreatorDashboardViewProps> = ({
         </div>
         <FancyButton onClick={onLaunchNew} variant="primary" size="md">
           <PlusCircle className="w-4 h-4 mr-2" />
-          <span>Launch New Campaign</span>
+          <span>Launch New Escrow</span>
         </FancyButton>
       </div>
 
@@ -133,32 +139,45 @@ export const CreatorDashboardView: React.FC<CreatorDashboardViewProps> = ({
         </div>
       )}
 
-      {/* Overview Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
-          <p className="text-xs text-slate-400">Total ETH Raised</p>
-          <p className="text-2xl font-bold font-mono text-emerald-400">{totalRaised} ETH</p>
-        </div>
-        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
-          <p className="text-xs text-slate-400">Campaigns Created</p>
-          <p className="text-2xl font-bold text-white font-mono">{myCampaigns.length}</p>
-        </div>
-        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
-          <p className="text-xs text-slate-400">Total Backers</p>
-          <p className="text-2xl font-bold text-cyan-400 font-mono">{totalBackers}</p>
-        </div>
-        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
-          <p className="text-xs text-slate-400">Successful Campaigns</p>
-          <p className="text-2xl font-bold text-purple-400 font-mono">{successfulCampaigns.length}</p>
-        </div>
+      {/* Overview Stat Cards with Cubby UI StatCard */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+        <StatCard
+          title="Total ETH Raised"
+          value={totalRaised}
+          unit="ETH"
+          delta={{ value: "Escrow Volume", trend: "up" }}
+          icon={<Coins className="w-4 h-4 text-emerald-400" />}
+        />
+        <StatCard
+          title="Campaigns Created"
+          value={myCampaigns.length}
+          delta={{ value: "Active Escrows", trend: "neutral" }}
+          icon={<Layers className="w-4 h-4 text-white" />}
+        />
+        <StatCard
+          title="Total Backers"
+          value={totalBackers}
+          delta={{ value: "Pledges", trend: "up" }}
+          icon={<Users className="w-4 h-4 text-cyan-400" />}
+        />
+        <StatCard
+          title="Funded Campaigns"
+          value={successfulCampaigns.length}
+          delta={{ value: "100% Target Met", trend: "up" }}
+          icon={<CheckCircle2 className="w-4 h-4 text-purple-400" />}
+        />
       </div>
 
       {/* Campaigns List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-          <span>Your Campaigns</span>
-          <span className="text-xs font-mono text-slate-500">({myCampaigns.length})</span>
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white flex items-center space-x-2">
+            <span>Your Campaigns</span>
+            <Badge variant="outline" size="sm">
+              {myCampaigns.length}
+            </Badge>
+          </h2>
+        </div>
 
         {myCampaigns.length === 0 ? (
           <div className="text-center py-16 bg-[#0d1117]/60 rounded-2xl border border-white/[0.08] p-8 space-y-3">
@@ -181,30 +200,41 @@ export const CreatorDashboardView: React.FC<CreatorDashboardViewProps> = ({
               const percent = Math.round((raised / goal) * 100);
               const isWithdrawable = c.status === "Successful" && !c.withdrawn;
 
-              const cardContent = (
-                <div className="bg-[#0d1117] border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-5 shadow-xl">
+              return (
+                <Card
+                  key={c.id}
+                  elevation="raised"
+                  className="p-5 sm:p-6 space-y-5 shadow-xl"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="flex items-center space-x-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#080a0e] text-slate-300 border border-white/5">
+                        <Badge variant="default" size="sm">
                           {c.category}
-                        </span>
-                        <span className="font-mono text-[10px] text-slate-500">
+                        </Badge>
+                        <span className="font-mono text-[10px] text-slate-400">
                           {c.address.slice(0, 10)}...
                         </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            c.status === "Active"
-                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                              : c.status === "Successful"
-                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                              : c.status === "Withdrawn"
-                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                              : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                          }`}
-                        >
-                          ● {c.status}
-                        </span>
+                        {c.status === "Active" && (
+                          <Badge variant="success" size="sm" dot pulse>
+                            ACTIVE
+                          </Badge>
+                        )}
+                        {c.status === "Successful" && (
+                          <Badge variant="cyan" size="sm">
+                            FUNDED 100%
+                          </Badge>
+                        )}
+                        {c.status === "Withdrawn" && (
+                          <Badge variant="purple" size="sm">
+                            WITHDRAWN
+                          </Badge>
+                        )}
+                        {(c.status === "Failed" || c.status === "Cancelled") && (
+                          <Badge variant="danger" size="sm">
+                            CANCELLED
+                          </Badge>
+                        )}
                       </div>
                       <h3
                         onClick={() => onSelectCampaign(c.address)}
@@ -250,113 +280,98 @@ export const CreatorDashboardView: React.FC<CreatorDashboardViewProps> = ({
                           variant="danger"
                           size="sm"
                         >
-                          Cancel
+                          Cancel Campaign
                         </FancyButton>
                       )}
                     </div>
                   </div>
 
-                  {/* Progress Meter */}
-                  <div className="space-y-1.5">
-                    <Meter
-                      value={raised}
-                      max={goal}
-                      label={`Progress: ${percent}% funded`}
-                      size="sm"
-                      segments={12}
-                    />
-                  </div>
+                  {/* Segmented Meter Component */}
+                  <Meter
+                    value={percent}
+                    label={`${c.totalRaised} ETH of ${c.goal} ETH target (${percent}%)`}
+                    segments={24}
+                    size="sm"
+                  />
 
-                  {/* Progress Stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-white/[0.08] text-xs">
+                  {/* Telemetry info */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-white/[0.08] text-xs font-mono">
                     <div>
-                      <span className="text-slate-500">Raised / Goal:</span>
-                      <p className="font-mono font-bold text-white">
-                        {c.totalRaised} / {c.goal} ETH
-                      </p>
+                      <span className="text-slate-400">Backers Count:</span>
+                      <p className="text-white font-bold mt-0.5">{c.contributorsCount} contributors</p>
                     </div>
                     <div>
-                      <span className="text-slate-500">Backers:</span>
-                      <p className="font-bold text-white font-mono">{c.contributorsCount}</p>
+                      <span className="text-slate-400">Escrow Address:</span>
+                      <p className="text-emerald-400 mt-0.5">{c.address.slice(0, 10)}...</p>
                     </div>
                     <div>
-                      <span className="text-slate-500">Milestones:</span>
-                      <p className="font-bold text-white font-mono">{c.updates.length}</p>
+                      <span className="text-slate-400">Milestone Posts:</span>
+                      <p className="text-white font-bold mt-0.5">{c.updates.length} published</p>
                     </div>
                     <div>
-                      <span className="text-slate-500">Platform Fee:</span>
-                      <p className="font-mono text-emerald-400">{c.feeBps / 100}% on success</p>
+                      <span className="text-slate-400">Fee on Success:</span>
+                      <p className="text-slate-300 mt-0.5">{c.feeBps / 100}% ({(raised * (c.feeBps / 10000)).toFixed(3)} ETH)</p>
                     </div>
                   </div>
-                </div>
-              );
-
-              return isWithdrawable ? (
-                <MarchingBorder key={c.id} borderRadius={16} strokeColor="#06b6d4" duration={6}>
-                  {cardContent}
-                </MarchingBorder>
-              ) : (
-                <div key={c.id}>{cardContent}</div>
+                </Card>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Post Milestone Update Modal */}
+      {/* Post Milestone Modal */}
       {selectedCampaignForUpdate && (
-        <div className="fixed inset-0 bg-[#080a0e]/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0d1117] border border-white/[0.1] rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-white flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              <span>Post Creator Milestone Update</span>
-            </h3>
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <Card elevation="overlay" className="max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-base font-bold text-white">Broadcast Milestone Update</h3>
             <p className="text-xs text-slate-400">
-              Broadcasts an immutable update to all project backers on-chain.
+              Records an immutable milestone update on-chain for all campaign backers.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Title</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Title</label>
                 <input
                   type="text"
-                  placeholder="e.g. Smart contracts audited & verified"
+                  placeholder="e.g. Prototype manufacturing completed"
                   value={updateTitle}
                   onChange={(e) => setUpdateTitle(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#080a0e] border border-white/10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                  className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Content (Markdown)</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Content</label>
                 <textarea
                   rows={4}
-                  placeholder="Describe recent milestones, deliverables, and next steps..."
+                  placeholder="Detail recent development progress, milestones hit, and upcoming deliverables..."
                   value={updateContent}
                   onChange={(e) => setUpdateContent(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#080a0e] border border-white/10 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all font-sans"
+                  className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
 
             <div className="flex justify-end space-x-2 pt-2">
               <FancyButton
-                onClick={() => setSelectedCampaignForUpdate(null)}
                 variant="default"
                 size="sm"
+                onClick={() => setSelectedCampaignForUpdate(null)}
               >
                 Cancel
               </FancyButton>
               <FancyButton
-                onClick={handlePostUpdate}
-                disabled={isSubmitting || !updateTitle || !updateContent}
                 variant="primary"
                 size="sm"
+                onClick={handlePostUpdate}
+                disabled={isSubmitting || !updateTitle || !updateContent}
+                isLoading={isSubmitting}
               >
-                {isSubmitting ? "Broadcasting..." : "Publish On-Chain"}
+                Publish to Escrow
               </FancyButton>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>

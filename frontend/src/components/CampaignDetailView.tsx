@@ -18,14 +18,26 @@ import {
   Sparkles,
   ExternalLink,
   QrCode as QrIcon,
+  ShieldCheck,
 } from "lucide-react";
-import { CircularSlider } from "@/components/ui/cubby-ui/circular-slider";
-import { Meter } from "@/components/ui/cubby-ui/meter";
-import { Timeline, TimelineEntry } from "@/components/ui/cubby-ui/timeline";
-import { QRCode } from "@/components/ui/cubby-ui/qr-code";
-import { FancyButton } from "@/components/ui/cubby-ui/fancy-button";
-import { MarchingBorder } from "@/components/ui/cubby-ui/marching-border";
-import { Kbd } from "@/components/ui/cubby-ui/kbd";
+import {
+  CircularSlider,
+  Meter,
+  Timeline,
+  TimelineEntry,
+  QRCode,
+  FancyButton,
+  MarchingBorder,
+  Kbd,
+  Badge,
+  Card,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  Avatar,
+  Tooltip,
+} from "@/components/ui/cubby-ui";
 
 interface CampaignDetailViewProps {
   campaignAddress: string;
@@ -49,7 +61,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [contributionAmount, setContributionAmount] = useState<number>(0.1);
-  const [activeTab, setActiveTab] = useState<"story" | "updates" | "contributors" | "contract">("story");
+  const [activeTab, setActiveTab] = useState<string>("story");
   const [anonymousContributors, setAnonymousContributors] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -157,7 +169,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
       setSuccessMsg(null);
       setIsSubmitting(true);
       await claimRefund(campaign.address);
-      setSuccessMsg(`Refund of ${myTotalContributed.toFixed(3)} ETH claimed successfully! Zero fees deducted.`);
+      setSuccessMsg("100% full refund claimed successfully! Zero platform fees deducted.");
     } catch (err: unknown) {
       const e = err as Error;
       setErrorMsg(e.message || "Refund claim failed.");
@@ -167,15 +179,15 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
   };
 
   const handleCancelCampaign = async () => {
-    if (!confirm("Are you sure you want to cancel this campaign? This action is irreversible.")) return;
+    if (!confirm("Are you sure you want to cancel this campaign? This action is immutable.")) return;
     try {
       setErrorMsg(null);
       setIsSubmitting(true);
       await cancelCampaign(campaign.address);
-      setSuccessMsg("Campaign cancelled.");
+      setSuccessMsg("Campaign cancelled. Backers are now eligible to reclaim their funds.");
     } catch (err: unknown) {
       const e = err as Error;
-      setErrorMsg(e.message || "Cancellation failed.");
+      setErrorMsg(e.message || "Failed to cancel campaign.");
     } finally {
       setIsSubmitting(false);
     }
@@ -190,41 +202,61 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
       setShowUpdateModal(false);
       setUpdateTitle("");
       setUpdateContent("");
-      setSuccessMsg("Milestone update broadcasted to on-chain log!");
+      setSuccessMsg("Milestone update broadcasted on-chain!");
     } catch (err: unknown) {
       const e = err as Error;
-      setErrorMsg(e.message || "Failed to post update.");
+      setErrorMsg(e.message || "Failed to post milestone update.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const formatCountdown = (deadlineSec: number) => {
-    if (!currentTime) return "Calculating time remaining...";
+    if (!currentTime) return "Calculating...";
     const diff = deadlineSec - currentTime;
-    if (diff <= 0) return "Campaign deadline ended";
+    if (diff <= 0) return "Campaign Concluded";
     const days = Math.floor(diff / 86400);
     const hours = Math.floor((diff % 86400) / 3600);
-    const minutes = Math.floor((diff % 3600) / 60);
-    return `${days}d ${hours}h ${minutes}m remaining`;
+    const mins = Math.floor((diff % 3600) / 60);
+    const secs = diff % 60;
+    return `${days}d ${hours}h ${mins}m ${secs}s remaining`;
   };
 
   const maskAddress = (addr: string) => {
     if (anonymousContributors) {
-      return `0x***...${addr.slice(-4)}`;
+      return `${addr.slice(0, 4)}••••••••${addr.slice(-4)}`;
     }
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  // Convert campaign updates into Cubby UI Timeline entries
-  const timelineEntries: TimelineEntry[] = campaign.updates.map((upd, idx) => ({
-    id: upd.cid || idx,
-    title: upd.title,
-    description: upd.content,
-    timestamp: upd.timestamp,
-    cid: upd.cid,
-    status: idx === 0 ? "current" : "completed",
-  }));
+  // Build timeline entries
+  const timelineEntries: TimelineEntry[] = [
+    {
+      id: "created",
+      title: "Escrow Contract Cloned & Initialized",
+      timestamp: new Date(campaign.createdAt * 1000).toLocaleDateString(),
+      description: `EIP-1167 proxy initialized with a ${campaign.goal} ETH goal target.`,
+      status: "completed",
+    },
+    ...campaign.updates.map((up, idx) => ({
+      id: up.cid || `update-${idx}`,
+      title: up.title,
+      timestamp: new Date(typeof up.timestamp === "number" && up.timestamp < 10000000000 ? up.timestamp * 1000 : up.timestamp).toLocaleDateString(),
+      description: up.content,
+      status: "completed" as const,
+    })),
+    {
+      id: "deadline",
+      title: "Funding Deadline",
+      timestamp: new Date(campaign.deadline * 1000).toLocaleDateString(),
+      description: isGoalMet
+        ? "Target achieved! Autonomous payout unlocked for creator."
+        : isDeadlinePassed
+        ? "Deadline passed without reaching target. 100% refunds enabled."
+        : "All-or-nothing evaluation threshold.",
+      status: isDeadlinePassed ? ("completed" as const) : ("current" as const),
+    },
+  ];
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -232,7 +264,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Explore</span>
@@ -245,7 +277,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
             onClick={() => setShowQRModal(true)}
             leftIcon={<QrIcon className="w-3.5 h-3.5" />}
           >
-            Direct QR
+            Direct Mobile QR
           </FancyButton>
         </div>
       </div>
@@ -267,31 +299,31 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
       {/* Header Info */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white/[0.04] text-emerald-300 border border-emerald-500/30">
+          <Badge variant="default" size="sm">
             {campaign.category}
-          </span>
-          <span className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-400 border border-white/[0.08] bg-white/[0.02]">
-            EIP-1167 Clone: {campaign.address.slice(0, 8)}...{campaign.address.slice(-6)}
-          </span>
+          </Badge>
+          <Badge variant="outline" size="sm">
+            Clone: {campaign.address.slice(0, 8)}...{campaign.address.slice(-6)}
+          </Badge>
           {currentStatus === "Active" && (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              ● ACTIVE ESCROW
-            </span>
+            <Badge variant="success" size="sm" dot pulse>
+              ACTIVE ESCROW
+            </Badge>
           )}
           {currentStatus === "Successful" && (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-              ✓ 100% FUNDED
-            </span>
+            <Badge variant="cyan" size="sm">
+              100% FUNDED
+            </Badge>
           )}
           {currentStatus === "Withdrawn" && (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
-              ✓ CREATOR PAID
-            </span>
+            <Badge variant="purple" size="sm">
+              CREATOR PAID OUT
+            </Badge>
           )}
           {(currentStatus === "Failed" || currentStatus === "Cancelled") && (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-              ✕ REFUND READY
-            </span>
+            <Badge variant="danger" size="sm">
+              REFUND READY
+            </Badge>
           )}
         </div>
 
@@ -303,18 +335,19 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
         </p>
 
         <div className="flex items-center space-x-2 text-xs text-slate-400 pt-1">
-          <span>Campaign Creator:</span>
+          <Avatar address={campaign.creator} size="sm" />
+          <span>Creator:</span>
           <button
             onClick={() => handleCopyAddress(campaign.creator)}
-            className="font-mono text-emerald-400 hover:underline flex items-center space-x-1"
+            className="font-mono text-emerald-400 hover:underline flex items-center space-x-1 cursor-pointer"
           >
             <span>{campaign.creator}</span>
             {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-500" />}
           </button>
           {isCreator && (
-            <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+            <Badge variant="success" size="sm">
               YOU
-            </span>
+            </Badge>
           )}
         </div>
       </div>
@@ -344,38 +377,32 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Segmented Tabs Bar */}
-          <div className="space-y-4">
-            <div className="flex items-center p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] space-x-1">
-              {[
-                { id: "story", label: "Project Story" },
-                { id: "updates", label: `Milestones (${campaign.updates.length})` },
-                { id: "contributors", label: `Backers (${campaign.contributors.length})` },
-                { id: "contract", label: "On-Chain Specs" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                    activeTab === tab.id
-                      ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+          {/* Cubby UI Accessible Tabs Component */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full grid grid-cols-4">
+              <TabsTrigger value="story" className="flex-1">
+                Story
+              </TabsTrigger>
+              <TabsTrigger value="updates" className="flex-1">
+                Updates ({campaign.updates.length})
+              </TabsTrigger>
+              <TabsTrigger value="contributors" className="flex-1">
+                Backers ({campaign.contributors.length})
+              </TabsTrigger>
+              <TabsTrigger value="contract" className="flex-1">
+                Contract
+              </TabsTrigger>
+            </TabsList>
 
             {/* Tab: Project Story */}
-            {activeTab === "story" && (
+            <TabsContent value="story">
               <div className="bg-[#0c1017] rounded-2xl border border-white/[0.08] p-6 text-slate-300 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap shadow-md">
                 {campaign.description}
               </div>
-            )}
+            </TabsContent>
 
             {/* Tab: Milestones via Cubby UI Timeline Component */}
-            {activeTab === "updates" && (
+            <TabsContent value="updates">
               <div className="bg-[#0c1017] rounded-2xl border border-white/[0.08] p-6 space-y-6 shadow-md">
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-white text-sm">Project Milestones & Updates</h3>
@@ -392,10 +419,10 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
 
                 <Timeline entries={timelineEntries} />
               </div>
-            )}
+            </TabsContent>
 
             {/* Tab: Contributors Ledger */}
-            {activeTab === "contributors" && (
+            <TabsContent value="contributors">
               <div className="bg-[#0c1017] rounded-2xl border border-white/[0.08] p-6 space-y-4 shadow-md">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-slate-400">
@@ -403,7 +430,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                   </span>
                   <button
                     onClick={() => setAnonymousContributors(!anonymousContributors)}
-                    className="flex items-center space-x-1.5 text-xs text-slate-300 hover:text-white"
+                    className="flex items-center space-x-1.5 text-xs text-slate-300 hover:text-white cursor-pointer"
                   >
                     {anonymousContributors ? <EyeOff className="w-3.5 h-3.5 text-slate-400" /> : <Eye className="w-3.5 h-3.5 text-emerald-400" />}
                     <span>{anonymousContributors ? "Reveal Addresses" : "Anonymous Mode (FR-16)"}</span>
@@ -419,9 +446,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                     {campaign.contributors.map((ct, idx) => (
                       <div key={idx} className="p-3.5 flex items-center justify-between text-xs bg-white/[0.01]">
                         <div className="flex items-center space-x-2.5">
-                          <div className="w-6 h-6 rounded-md bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-[10px] font-mono text-emerald-400">
-                            #{idx + 1}
-                          </div>
+                          <Avatar address={ct.address} size="sm" />
                           <div>
                             <span className="font-mono text-slate-200">{maskAddress(ct.address)}</span>
                             {ct.address.toLowerCase() === account.toLowerCase() && (
@@ -442,10 +467,10 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            </TabsContent>
 
             {/* Tab: Contract & Security with SVG QR Code */}
-            {activeTab === "contract" && (
+            <TabsContent value="contract">
               <div className="bg-[#0c1017] rounded-2xl border border-white/[0.08] p-6 space-y-6 shadow-md">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <QRCode value={campaign.address} size={130} label="Campaign Contract" />
@@ -475,13 +500,13 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                   <span className="text-white font-medium">{campaign.feeBps / 100}% on successful campaigns only</span>
                 </div>
               </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Right Column (5 cols): Funding Progress & Cubby Circular Dial Widget */}
         <div className="lg:col-span-5 space-y-6">
-          <div className="relative bg-[#0c1017] rounded-3xl border border-white/[0.08] p-6 space-y-6 shadow-2xl">
+          <Card elevation="raised" className="relative p-6 space-y-6 overflow-hidden">
             {/* Marching border on active campaigns */}
             {currentStatus === "Active" && (
               <MarchingBorder
@@ -554,7 +579,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                         key={amt}
                         type="button"
                         onClick={() => setContributionAmount(amt)}
-                        className={`py-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
+                        className={`py-1.5 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer active:scale-95 ${
                           contributionAmount === amt
                             ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm"
                             : "bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] border-white/[0.08]"
@@ -679,19 +704,19 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                 </FancyButton>
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* SVG QR Code Modal */}
       {showQRModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0e121a] border border-white/[0.12] rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <Card elevation="overlay" className="max-w-sm w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-white text-base">Direct Mobile Contribution</h3>
               <button
                 onClick={() => setShowQRModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white cursor-pointer"
               >
                 ✕
               </button>
@@ -715,14 +740,14 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
             >
               Done
             </FancyButton>
-          </div>
+          </Card>
         </div>
       )}
 
       {/* Milestone Update Modal */}
       {showUpdateModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0e121a] border border-white/[0.12] rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          <Card elevation="overlay" className="max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-base font-bold text-white">Post Creator Milestone Update</h3>
             <p className="text-xs text-slate-400">
               Broadcasts an immutable update to all project backers on-chain.
@@ -770,7 +795,7 @@ export const CampaignDetailView: React.FC<CampaignDetailViewProps> = ({
                 Publish On-Chain
               </FancyButton>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>
