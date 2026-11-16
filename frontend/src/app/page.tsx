@@ -9,24 +9,44 @@ import { CreateCampaignWizard } from "@/components/CreateCampaignWizard";
 import { CreatorDashboardView } from "@/components/CreatorDashboardView";
 import { BackerDashboardView } from "@/components/BackerDashboardView";
 import { AdminPanelView } from "@/components/AdminPanelView";
-import { Coins, Shield, ExternalLink, Heart } from "lucide-react";
+import { CommandMenu } from "@/components/ui/cubby-ui/command-menu";
+import { Coins, Shield, Sparkles } from "lucide-react";
+import { Kbd } from "@/components/ui/cubby-ui/kbd";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<string>("explore");
   const [selectedCampaignAddress, setSelectedCampaignAddress] = useState<string | null>(null);
+  const [isCommandMenuOpen, setIsCommandMenuOpen] = useState<boolean>(false);
+
+  const handleCommandNavigate = (tab: string, campaignAddress?: string) => {
+    if (tab === "campaign" && campaignAddress) {
+      setSelectedCampaignAddress(campaignAddress);
+    } else {
+      setSelectedCampaignAddress(null);
+      setActiveTab(tab);
+    }
+  };
 
   return (
     <Web3Provider>
-      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-        {/* Navigation Bar */}
+      <div className="min-h-screen flex flex-col bg-[#080a0e] text-slate-100 selection:bg-emerald-500 selection:text-slate-950 font-sans">
+        {/* Command Palette Modal */}
+        <CommandMenu
+          isOpen={isCommandMenuOpen}
+          onClose={() => setIsCommandMenuOpen(false)}
+          onNavigate={handleCommandNavigate}
+        />
+
+        {/* Tactile Navbar */}
         <Navbar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onSelectCampaign={setSelectedCampaignAddress}
+          onOpenCommandMenu={() => setIsCommandMenuOpen(true)}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
           {selectedCampaignAddress ? (
             <CampaignDetailView
               campaignAddress={selectedCampaignAddress}
@@ -38,6 +58,7 @@ export default function Home() {
                 <ExploreView
                   onSelectCampaign={(addr) => setSelectedCampaignAddress(addr)}
                   onLaunchClick={() => setActiveTab("create")}
+                  onOpenCommandMenu={() => setIsCommandMenuOpen(true)}
                 />
               )}
 
@@ -68,24 +89,32 @@ export default function Home() {
           )}
         </main>
 
-        {/* Footer */}
-        <footer className="border-t border-slate-900 bg-slate-950/80 py-8 text-xs text-slate-500">
+        {/* Precision Tactile Footer */}
+        <footer className="border-t border-white/[0.08] bg-[#07090d]/80 py-8 text-xs text-slate-500 mt-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-2">
-              <Coins className="w-4 h-4 text-emerald-400" />
-              <span className="font-bold text-slate-300">Crowdr ETH</span>
-              <span>— Trustless All-or-Nothing Crowdfunding</span>
+            <div className="flex items-center space-x-2.5">
+              <div className="w-5 h-5 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                <Coins className="w-3 h-3 text-emerald-400" />
+              </div>
+              <span className="font-bold text-slate-200">Crowdr ETH</span>
+              <span>— Trustless All-or-Nothing Escrow</span>
             </div>
 
-            <div className="flex items-center space-x-6 text-[11px]">
-              <span className="flex items-center space-x-1">
+            <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono">
+              <span className="flex items-center gap-1.5 text-slate-400">
                 <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Non-Custodial Smart Contracts</span>
+                <span>EIP-1167 Minimal Clones</span>
               </span>
               <span>•</span>
-              <span>Solidity 0.8.20 + EIP-1167 Clones</span>
+              <button
+                onClick={() => setIsCommandMenuOpen(true)}
+                className="flex items-center gap-1.5 hover:text-slate-300 transition-colors"
+              >
+                <span>Command Palette</span>
+                <Kbd size="xs" keys={["mod", "K"]} />
+              </button>
               <span>•</span>
-              <span>PRD v1.0 Compliant</span>
+              <span className="text-emerald-400/90">Cubby UI Design Tokens</span>
             </div>
           </div>
         </footer>

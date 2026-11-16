@@ -13,7 +13,9 @@ import {
   ShieldCheck,
   RefreshCw,
   Clock,
+  Sparkles,
 } from "lucide-react";
+import { FancyButton, MarchingBorder, Meter } from "@/components/ui/cubby-ui";
 
 interface BackerDashboardViewProps {
   onSelectCampaign: (address: string) => void;
@@ -75,29 +77,26 @@ export const BackerDashboardView: React.FC<BackerDashboardViewProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-white">Contributor Dashboard</h1>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Contributor Dashboard</h1>
           <p className="text-xs text-slate-400 mt-1">
             Track your on-chain pledges, view transaction receipts, and reclaim guaranteed refunds.
           </p>
         </div>
-        <button
-          onClick={onExplore}
-          className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-all"
-        >
+        <FancyButton onClick={onExplore} variant="default" size="md">
           <span>Explore More Campaigns</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
+          <ArrowRight className="w-4 h-4 ml-1.5" />
+        </FancyButton>
       </div>
 
       {/* Notifications */}
       {errorMsg && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start space-x-3">
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs flex items-start space-x-3">
           <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>{errorMsg}</span>
         </div>
       )}
       {successMsg && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-start space-x-3">
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs flex items-start space-x-3">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>{successMsg}</span>
         </div>
@@ -105,21 +104,21 @@ export const BackerDashboardView: React.FC<BackerDashboardViewProps> = ({
 
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
           <p className="text-xs text-slate-400">Total ETH Contributed</p>
           <p className="text-2xl font-bold font-mono text-emerald-400">{totalContributedEth} ETH</p>
         </div>
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
           <p className="text-xs text-slate-400">Campaigns Backed</p>
-          <p className="text-2xl font-bold text-white">{backedCampaigns.length}</p>
+          <p className="text-2xl font-bold text-white font-mono">{backedCampaigns.length}</p>
         </div>
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
           <p className="text-xs text-slate-400">Successful Projects</p>
-          <p className="text-2xl font-bold text-cyan-400">
+          <p className="text-2xl font-bold text-cyan-400 font-mono">
             {backedCampaigns.filter((c) => c.status === "Successful" || c.status === "Withdrawn").length}
           </p>
         </div>
-        <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-1">
+        <div className="p-5 rounded-2xl bg-[#0d1117] border border-white/[0.08] space-y-1 shadow-lg">
           <p className="text-xs text-slate-400">Claimable Refunds</p>
           <p className="text-2xl font-bold font-mono text-amber-400">{claimableRefundTotal} ETH</p>
         </div>
@@ -127,21 +126,23 @@ export const BackerDashboardView: React.FC<BackerDashboardViewProps> = ({
 
       {/* Backed Campaigns Table / List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-white">Your Backed Campaigns</h2>
+        <h2 className="text-lg font-bold text-white flex items-center space-x-2">
+          <span>Your Backed Campaigns</span>
+          <span className="text-xs font-mono text-slate-500">({backedCampaigns.length})</span>
+        </h2>
 
         {backedCampaigns.length === 0 ? (
-          <div className="text-center py-16 bg-slate-900/40 rounded-2xl border border-slate-800 p-8 space-y-3">
+          <div className="text-center py-16 bg-[#0d1117]/60 rounded-2xl border border-white/[0.08] p-8 space-y-3">
             <Wallet className="w-10 h-10 text-slate-600 mx-auto" />
             <h3 className="text-base font-bold text-white">No active contributions for this wallet</h3>
             <p className="text-xs text-slate-400 max-w-sm mx-auto">
               Switch to the &quot;Alex (Backer)&quot; persona from the top navigation to view sample backed campaigns, or explore active projects to back one.
             </p>
-            <button
-              onClick={onExplore}
-              className="mt-2 px-4 py-2 rounded-lg bg-emerald-500 text-slate-950 font-bold text-xs"
-            >
-              Browse Active Projects
-            </button>
+            <div className="pt-2">
+              <FancyButton onClick={onExplore} variant="primary" size="sm">
+                Browse Active Projects
+              </FancyButton>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -149,27 +150,24 @@ export const BackerDashboardView: React.FC<BackerDashboardViewProps> = ({
               const isRefundable =
                 (c.status === "Failed" || c.status === "Cancelled") && c.myTotalContributed > 0;
 
-              return (
-                <div
-                  key={c.id}
-                  className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4 shadow-lg"
-                >
+              const card = (
+                <div className="bg-[#0d1117] border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xl">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex items-center space-x-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#080a0e] text-slate-300 border border-white/5">
                           {c.category}
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             c.status === "Active"
-                              ? "bg-emerald-500/20 text-emerald-400"
+                              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                               : c.status === "Successful" || c.status === "Withdrawn"
-                              ? "bg-cyan-500/20 text-cyan-300"
-                              : "bg-rose-500/20 text-rose-300"
+                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                              : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                           }`}
                         >
-                          {c.status}
+                          ● {c.status}
                         </span>
                       </div>
                       <h3
@@ -189,29 +187,32 @@ export const BackerDashboardView: React.FC<BackerDashboardViewProps> = ({
                       </div>
 
                       {isRefundable ? (
-                        <button
+                        <FancyButton
                           onClick={() => handleClaimRefund(c.address, c.myTotalContributed)}
                           disabled={isSubmitting}
-                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                          variant="emerald"
+                          size="md"
                         >
-                          Claim 100% Refund (FR-21)
-                        </button>
+                          <ShieldCheck className="w-4 h-4 mr-1.5" />
+                          <span>Claim 100% Refund (FR-21)</span>
+                        </FancyButton>
                       ) : (
-                        <button
+                        <FancyButton
                           onClick={() => onSelectCampaign(c.address)}
-                          className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+                          variant="default"
+                          size="sm"
                         >
                           View Details
-                        </button>
+                        </FancyButton>
                       )}
                     </div>
                   </div>
 
                   {/* Summary row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-800/80 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-white/[0.08] text-xs">
                     <div>
                       <span className="text-slate-500">Campaign Progress:</span>
-                      <p className="font-mono text-white">
+                      <p className="font-mono text-white font-medium">
                         {c.totalRaised} / {c.goal} ETH
                       </p>
                     </div>
@@ -221,10 +222,21 @@ export const BackerDashboardView: React.FC<BackerDashboardViewProps> = ({
                     </div>
                     <div>
                       <span className="text-slate-500">Receipt Status:</span>
-                      <p className="text-emerald-400 font-medium">On-chain verified</p>
+                      <p className="text-emerald-400 font-medium flex items-center space-x-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                        <span>On-chain verified</span>
+                      </p>
                     </div>
                   </div>
                 </div>
+              );
+
+              return isRefundable ? (
+                <MarchingBorder key={c.id} borderRadius={16} strokeColor="#f59e0b" duration={6}>
+                  {card}
+                </MarchingBorder>
+              ) : (
+                <div key={c.id}>{card}</div>
               );
             })}
           </div>

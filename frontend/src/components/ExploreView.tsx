@@ -4,9 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useWeb3 } from "@/context/Web3Context";
 import { Campaign, CampaignStatus } from "@/types/crowdfunding";
 import {
-  Search,
-  SlidersHorizontal,
-  Flame,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -14,24 +11,43 @@ import {
   Users,
   Shield,
   ArrowRight,
-  TrendingUp,
-  Filter,
+  Sparkles,
+  Layers,
+  Flame,
 } from "lucide-react";
+import { MarchingBorder } from "@/components/ui/cubby-ui/marching-border";
+import { FancyButton } from "@/components/ui/cubby-ui/fancy-button";
+import { Meter } from "@/components/ui/cubby-ui/meter";
+import { SentenceFilters } from "@/components/ui/cubby-ui/filters";
+import { Kbd } from "@/components/ui/cubby-ui/kbd";
 
 interface ExploreViewProps {
   onSelectCampaign: (address: string) => void;
   onLaunchClick: () => void;
+  onOpenCommandMenu?: () => void;
 }
 
 const CATEGORIES = ["All", "Technology", "Open Source", "Art & Film", "Community", "Gaming"];
 const STATUSES = ["All", "Active", "Successful", "Failed"];
 
-export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectCampaign, onLaunchClick }) => {
+export const ExploreView: React.FC<ExploreViewProps> = ({
+  onSelectCampaign,
+  onLaunchClick,
+  onOpenCommandMenu,
+}) => {
   const { campaigns } = useWeb3();
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState("All");
-  const [sortBy, setSortBy] = useState<"trending" | "progress" | "endingSoon" | "newest">("trending");
+  const [sortBy, setSortBy] = useState<string>("trending");
+  const [currentTime, setCurrentTime] = useState<number>(0);
+
+  useEffect(() => {
+    setCurrentTime(Math.floor(Date.now() / 1000));
+    const interval = setInterval(() => {
+      setCurrentTime(Math.floor(Date.now() / 1000));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Calculate high-level platform stats
   const totalEthRaised = useMemo(() => {
@@ -50,21 +66,13 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectCampaign, onLa
   const filteredCampaigns = useMemo(() => {
     return campaigns
       .filter((c) => {
-        const matchesQuery =
-          c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.creator.toLowerCase().includes(searchQuery.toLowerCase());
-
-        const matchesCategory =
-          selectedCategory === "All" || c.category === selectedCategory;
-
+        const matchesCategory = selectedCategory === "All" || c.category === selectedCategory;
         const matchesStatus =
           selectedStatus === "All" ||
           (selectedStatus === "Active" && c.status === "Active") ||
           (selectedStatus === "Successful" && (c.status === "Successful" || c.status === "Withdrawn")) ||
           (selectedStatus === "Failed" && (c.status === "Failed" || c.status === "Cancelled"));
-
-        return matchesQuery && matchesCategory && matchesStatus;
+        return matchesCategory && matchesStatus;
       })
       .sort((a, b) => {
         if (sortBy === "trending" || sortBy === "newest") {
@@ -80,20 +88,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectCampaign, onLa
         }
         return 0;
       });
-  }, [campaigns, searchQuery, selectedCategory, selectedStatus, sortBy]);
-
-  const [currentTime, setCurrentTime] = useState<number>(0);
-
-  useEffect(() => {
-    setCurrentTime(Math.floor(Date.now() / 1000));
-    const interval = setInterval(() => {
-      setCurrentTime(Math.floor(Date.now() / 1000));
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [campaigns, selectedCategory, selectedStatus, sortBy]);
 
   const formatRemainingTime = (deadlineSec: number) => {
-    if (!currentTime) return "Loading...";
+    if (!currentTime) return "Calculating...";
     const diff = deadlineSec - currentTime;
     if (diff <= 0) return "Ended";
     const days = Math.floor(diff / 86400);
@@ -107,25 +105,25 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectCampaign, onLa
     switch (status) {
       case "Active":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
-            Active
+            ACTIVE
           </span>
         );
       case "Successful":
       case "Withdrawn":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
             <CheckCircle2 className="w-3 h-3 mr-1" />
-            {status === "Withdrawn" ? "Funded & Paid" : "Funded 100%"}
+            {status === "Withdrawn" ? "PAID OUT" : "FUNDED 100%"}
           </span>
         );
       case "Failed":
       case "Cancelled":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
             <AlertCircle className="w-3 h-3 mr-1" />
-            {status === "Cancelled" ? "Cancelled" : "Failed · Refund Ready"}
+            REFUND READY
           </span>
         );
       default:
@@ -133,168 +131,211 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectCampaign, onLa
     }
   };
 
-  return (
-    <div className="space-y-10 pb-16">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 p-8 sm:p-12 shadow-2xl">
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+  const featuredCampaign = campaigns.find((c) => c.status === "Active");
 
-        <div className="relative max-w-3xl space-y-6">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-            <Shield className="w-3.5 h-3.5" />
-            <span>Non-Custodial · All-or-Nothing Smart Contracts</span>
+  return (
+    <div className="space-y-10 pb-20">
+      {/* Precision Hero Section */}
+      <section className="relative rounded-3xl bg-[#0c1017] border border-white/[0.08] p-8 sm:p-10 shadow-2xl overflow-hidden">
+        {/* Subtle accent light */}
+        <div className="absolute top-0 right-1/4 w-96 h-48 bg-emerald-500/[0.07] rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-4xl space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-300 font-medium">Non-Custodial Ethereum Crowdfunding</span>
+            <Kbd size="xs">EIP-1167</Kbd>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            Fund projects with <br />
-            <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-              guaranteed on-chain refunds.
-            </span>
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
+            Peer-to-peer capital <br className="hidden sm:inline" />
+            with <span className="text-emerald-400">code-guaranteed</span> full refunds.
           </h1>
 
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-            Direct peer-to-peer ETH crowdfunding where code holds custody. If a campaign hits its goal before the
-            deadline, the creator receives the funds. If not, every contributor reclaims 100% of their contribution.
+          <p className="text-sm sm:text-base text-slate-300 max-w-2xl leading-relaxed">
+            Funds are locked in immutable smart contract clones. If a campaign hits its goal before the
+            deadline, the creator withdraws the funds. If not, every backer can instantly reclaim 100% of their ETH.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <button
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <FancyButton
+              variant="primary"
+              size="lg"
               onClick={onLaunchClick}
-              className="flex items-center space-x-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold shadow-lg shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5"
+              rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              <span>Start a Campaign</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <a
-              href="#campaign-grid"
-              className="flex items-center space-x-2 px-6 py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold transition-all"
+              Start a Campaign
+            </FancyButton>
+
+            <FancyButton
+              variant="default"
+              size="lg"
+              onClick={onOpenCommandMenu}
+              leftIcon={<Sparkles className="w-4 h-4 text-emerald-400" />}
             >
-              <span>Explore Projects</span>
-            </a>
+              Command Palette
+            </FancyButton>
           </div>
 
-          {/* Quick Stats Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-slate-800/80">
-            <div>
-              <p className="text-xs text-slate-400">Total Raised</p>
-              <p className="text-xl sm:text-2xl font-bold font-mono text-emerald-400">{totalEthRaised} ETH</p>
+          {/* Precision Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-white/[0.08]">
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-mono uppercase text-slate-400">Total Volume Raised</span>
+              <p className="text-xl sm:text-2xl font-black font-mono text-emerald-400">{totalEthRaised} ETH</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">Active Campaigns</p>
-              <p className="text-xl sm:text-2xl font-bold text-white">{activeCount}</p>
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-mono uppercase text-slate-400">Active Escrows</span>
+              <p className="text-xl sm:text-2xl font-black font-mono text-white">{activeCount}</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">Funded Projects</p>
-              <p className="text-xl sm:text-2xl font-bold text-cyan-400">{successfulCount}</p>
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-mono uppercase text-slate-400">Funded Projects</span>
+              <p className="text-xl sm:text-2xl font-black font-mono text-cyan-400">{successfulCount}</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-400">Platform Fee</p>
-              <p className="text-xl sm:text-2xl font-bold text-white">2.0% <span className="text-xs text-slate-400 font-normal">(on success only)</span></p>
+            <div className="space-y-0.5">
+              <span className="text-[11px] font-mono uppercase text-slate-400">Platform Fee</span>
+              <p className="text-xl sm:text-2xl font-black font-mono text-white">
+                2.0% <span className="text-xs font-normal text-slate-400 font-sans">(on success only)</span>
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Discovery Filters and Search */}
-      <section id="campaign-grid" className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Search Input */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search campaigns by title, keywords or creator..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
-            />
-          </div>
+      {/* Featured Campaign Highlight with Cubby UI MarchingBorder */}
+      {featuredCampaign && (
+        <section className="relative rounded-2xl bg-[#0d1118] border border-white/[0.08] p-6 sm:p-7 shadow-xl overflow-hidden group">
+          {/* Animated Marching Ants Border on Live Spotlight */}
+          <MarchingBorder
+            strokeWidth={1.5}
+            dash={1.5}
+            gap={1}
+            duration={1.2}
+            className="text-emerald-500/50"
+          />
 
-          {/* Sorting & Status Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center space-x-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
-              {STATUSES.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setSelectedStatus(status)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    selectedStatus === status
-                      ? "bg-slate-800 text-emerald-400 font-semibold"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
+          <div className="relative z-10 flex flex-col lg:flex-row items-center gap-6">
+            <div className="w-full lg:w-1/3 aspect-video rounded-xl overflow-hidden bg-slate-950 shrink-0 border border-white/[0.08]">
+              <img
+                src={featuredCampaign.coverImage}
+                alt={featuredCampaign.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
             </div>
 
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "trending" | "progress" | "endingSoon" | "newest")}
-              aria-label="Sort campaigns"
-              className="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-medium text-slate-200 focus:outline-none focus:border-emerald-500"
-            >
-              <option value="trending">Trending / Featured</option>
-              <option value="progress">% Reached (Highest)</option>
-              <option value="endingSoon">Ending Soonest</option>
-              <option value="newest">Recently Launched</option>
-            </select>
-          </div>
-        </div>
+            <div className="flex-1 space-y-3 w-full">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/[0.06] text-slate-300">
+                    FEATURED ESCROW
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300">
+                    {featuredCampaign.category}
+                  </span>
+                </div>
+                {getStatusBadge(featuredCampaign.status)}
+              </div>
 
-        {/* Categories Bar */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-none">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                selectedCategory === cat
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:bg-slate-800"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+              <h2
+                onClick={() => onSelectCampaign(featuredCampaign.address)}
+                className="text-xl font-bold text-white hover:text-emerald-400 transition-colors cursor-pointer"
+              >
+                {featuredCampaign.title}
+              </h2>
+              <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                {featuredCampaign.summary}
+              </p>
+
+              {/* Segmented Meter */}
+              <div className="pt-2">
+                <Meter
+                  value={(parseFloat(featuredCampaign.totalRaised) / parseFloat(featuredCampaign.goal)) * 100}
+                  label={`${featuredCampaign.totalRaised} ETH raised of ${featuredCampaign.goal} ETH target`}
+                  segments={28}
+                  size="md"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
+                  <span>{featuredCampaign.contributorsCount} backers</span>
+                  <span>•</span>
+                  <span>{formatRemainingTime(featuredCampaign.deadline)}</span>
+                </div>
+
+                <FancyButton
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onSelectCampaign(featuredCampaign.address)}
+                >
+                  View Escrow
+                </FancyButton>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Cubby UI Sentence Filter Bar */}
+      <section className="space-y-6">
+        <div className="p-4 rounded-2xl bg-[#0c1017] border border-white/[0.08] shadow-sm">
+          <SentenceFilters
+            category={selectedCategory}
+            setCategory={setSelectedCategory}
+            status={selectedStatus}
+            setStatus={setSelectedStatus}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            categories={CATEGORIES}
+            statuses={STATUSES}
+          />
         </div>
 
         {/* Campaigns Grid */}
         {filteredCampaigns.length === 0 ? (
-          <div className="text-center py-20 bg-slate-900/40 rounded-2xl border border-slate-800/80 p-8">
-            <Filter className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-white">No campaigns found</h3>
-            <p className="text-sm text-slate-400 mt-1 max-w-sm mx-auto">
-              Try adjusting your search criteria or filter to discover projects.
+          <div className="text-center py-20 bg-[#0c1017] rounded-2xl border border-white/[0.08] p-8 space-y-3">
+            <Coins className="w-10 h-10 text-slate-600 mx-auto" />
+            <h3 className="text-base font-bold text-white">No campaigns match these filters</h3>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Reset your category or status filters to view all active campaigns.
             </p>
-            <button
+            <FancyButton
+              variant="default"
+              size="sm"
               onClick={() => {
-                setSearchQuery("");
                 setSelectedCategory("All");
                 setSelectedStatus("All");
               }}
-              className="mt-4 px-4 py-2 rounded-lg bg-slate-800 text-xs font-medium text-emerald-400 hover:bg-slate-700"
             >
               Reset Filters
-            </button>
+            </FancyButton>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCampaigns.map((c) => {
               const raised = parseFloat(c.totalRaised);
               const goal = parseFloat(c.goal);
-              const percent = Math.min(Math.round((raised / goal) * 100), 100);
-              const actualPercent = Math.round((raised / goal) * 100);
+              const percent = (raised / goal) * 100;
+              const isEndingSoon = c.status === "Active" && c.deadline - currentTime < 86400 * 3;
 
               return (
                 <div
                   key={c.id}
                   onClick={() => onSelectCampaign(c.address)}
-                  className="group flex flex-col bg-slate-900/70 hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700 rounded-2xl overflow-hidden shadow-lg transition-all duration-200 cursor-pointer hover:-translate-y-1"
+                  className="group relative flex flex-col bg-[#0d1118] hover:bg-[#111620] border border-white/[0.08] hover:border-white/[0.16] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-200 cursor-pointer"
                 >
-                  {/* Cover Image & Category Badge */}
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-950">
+                  {/* Subtle Marching Border on ending soon or 90%+ campaigns */}
+                  {isEndingSoon && (
+                    <MarchingBorder
+                      strokeWidth={1.5}
+                      dash={1}
+                      gap={0.8}
+                      duration={1.5}
+                      className="text-amber-400/60"
+                    />
+                  )}
+
+                  {/* Image container */}
+                  <div className="relative h-44 w-full overflow-hidden bg-slate-950">
                     <img
                       src={c.coverImage}
                       alt={c.title}
@@ -302,58 +343,40 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onSelectCampaign, onLa
                       loading="lazy"
                     />
                     <div className="absolute top-3 left-3">
-                      <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-slate-900/90 backdrop-blur-md text-slate-200 border border-slate-700/50">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-950/80 backdrop-blur-md text-slate-200 border border-white/[0.1]">
                         {c.category}
                       </span>
                     </div>
                     <div className="absolute top-3 right-3">{getStatusBadge(c.status)}</div>
                   </div>
 
-                  {/* Body Info */}
+                  {/* Card Content */}
                   <div className="flex-1 p-5 flex flex-col justify-between space-y-4">
-                    <div>
+                    <div className="space-y-1.5">
                       <h3 className="font-bold text-base text-white group-hover:text-emerald-400 transition-colors line-clamp-1">
                         {c.title}
                       </h3>
-                      <p className="text-xs text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                         {c.summary}
                       </p>
                     </div>
 
-                    {/* Progress Bar & Goal */}
-                    <div className="space-y-2 pt-2 border-t border-slate-800/60">
-                      <div className="flex justify-between items-baseline text-xs">
-                        <div>
-                          <span className="font-bold font-mono text-white text-sm">{c.totalRaised} ETH</span>
-                          <span className="text-slate-500 ml-1">raised of {c.goal} ETH</span>
-                        </div>
-                        <span
-                          className={`font-bold font-mono ${
-                            actualPercent >= 100 ? "text-emerald-400" : "text-slate-300"
-                          }`}
-                        >
-                          {actualPercent}%
-                        </span>
-                      </div>
+                    {/* Segmented Meter Component */}
+                    <div className="space-y-3 pt-2 border-t border-white/[0.06]">
+                      <Meter
+                        value={percent}
+                        label={`${c.totalRaised} ETH / ${c.goal} ETH`}
+                        segments={20}
+                        size="sm"
+                      />
 
-                      <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            actualPercent >= 100
-                              ? "bg-gradient-to-r from-emerald-500 to-teal-400"
-                              : "bg-emerald-500"
-                          }`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-
-                      {/* Footer: Backers & Time */}
-                      <div className="flex items-center justify-between pt-2 text-[11px] text-slate-400">
-                        <div className="flex items-center space-x-1.5">
+                      {/* Card Footer */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                        <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 text-slate-500" />
                           <span>{c.contributorsCount} backers</span>
                         </div>
-                        <div className="flex items-center space-x-1.5">
+                        <div className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 text-slate-500" />
                           <span>{formatRemainingTime(c.deadline)}</span>
                         </div>
